@@ -27,7 +27,10 @@ function Sidebar() {
       </Link>
       <Link to="/staff">
         スタフ
-        </Link>
+      </Link>
+      <Link to="/roster">
+        行路組み立て
+      </Link>
       <Link to="/upload">
        データアップロード
       </Link>

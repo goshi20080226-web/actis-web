@@ -1,0 +1,243 @@
+
+
+.turnback-link {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.turnback-link:hover {
+  opacity: 0.7;
+}
+
+/* 行路情報 */
+.staff-roster-info {
+  margin: 18px 0 20px;
+  padding: 18px;
+  background: #fff;
+  border: 1px solid #d8e0e6;
+  border-radius: 8px;
+}
+
+.staff-roster-info-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #e8edf1;
+}
+
+.staff-roster-info-label {
+  display: block;
+  margin-bottom: 4px;
+  color: #687782;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .08em;
+}
+
+.staff-roster-info h2 {
+  margin: 0;
+  font-size: 21px;
+}
+
+.staff-roster-info-type {
+  padding: 5px 9px;
+  border-radius: 5px;
+  background: #eef2f5;
+  color: #52616d;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.staff-roster-info-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  padding: 14px 0;
+}
+
+.staff-roster-info-grid > div {
+  min-width: 0;
+}
+
+.staff-roster-info-grid span {
+  display: block;
+  margin-bottom: 4px;
+  color: #687782;
+  font-size: 11px;
+}
+
+.staff-roster-info-grid strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+}
+
+.staff-roster-info-sequence {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 13px;
+  border-top: 1px solid #e8edf1;
+}
+
+.staff-roster-sequence-train,
+.staff-roster-sequence-event {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 3px 8px;
+  border: 1px solid #d8e0e6;
+  border-radius: 5px;
+  background: #fff;
+  color: #52616d;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.staff-roster-sequence-train.active {
+  border-color: #1f8a70;
+  background: #edf7f4;
+  color: #176b57;
+}
+
+.staff-roster-sequence-event {
+  border-style: dashed;
+  background: #f8fafb;
+  color: #687782;
+}
+
+@media (max-width: 600px) {
+  .staff-roster-info-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 行路情報 - スタフ本体に自然につながるコンパクトなデザイン */
+.staff-roster-info {
+  margin: 14px 0 16px;
+  padding: 0;
+  background: #fff;
+  border: 1px solid #d8e0e6;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.staff-roster-info-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 58px;
+  padding: 10px 16px;
+  background: #f7f9fa;
+  border-bottom: 1px solid #e4e9ed;
+}
+.staff-roster-info-head > div { min-width: 0; }
+.staff-roster-info-label {
+  display: block;
+  margin-bottom: 2px;
+  color: #71808b;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .08em;
+}
+.staff-roster-info h2 {
+  margin: 0;
+  color: #17202a;
+  font-size: 20px;
+  line-height: 1.2;
+}
+.staff-roster-info-type {
+  flex: 0 0 auto;
+  padding: 5px 10px;
+  border: 1px solid #d5dde2;
+  border-radius: 999px;
+  background: #fff;
+  color: #52616d;
+  font-size: 11px;
+  font-weight: 700;
+}
+.staff-roster-info-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-bottom: 1px solid #e8edf1;
+}
+.staff-roster-info-grid > div {
+  min-width: 0;
+  padding: 9px 14px;
+  border-right: 1px solid #e8edf1;
+}
+.staff-roster-info-grid > div:last-child { border-right: 0; }
+.staff-roster-info-grid span {
+  display: block;
+  margin-bottom: 2px;
+  color: #78858e;
+  font-size: 10px;
+}
+.staff-roster-info-grid strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #26333d;
+  font-size: 13px;
+  line-height: 1.3;
+}
+.staff-roster-info-sequence {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 42px;
+  padding: 7px 10px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  background: #fff;
+}
+.staff-roster-sequence-train,
+.staff-roster-sequence-event {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  min-width: 42px;
+  min-height: 25px;
+  padding: 2px 7px;
+  border: 1px solid #d8e0e6;
+  border-radius: 4px;
+  background: #fff;
+  color: #52616d;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.staff-roster-sequence-train.active {
+  border-color: #1f8a70;
+  background: #edf7f4;
+  color: #176b57;
+  box-shadow: inset 0 0 0 1px rgba(31,138,112,.08);
+}
+.staff-roster-sequence-event {
+  border-style: dashed;
+  background: #f8fafb;
+  color: #687782;
+}
+@media (max-width: 700px) {
+  .staff-roster-info-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .staff-roster-info-grid > div:nth-child(2) { border-right: 0; }
+  .staff-roster-info-grid > div:nth-child(3) { border-top: 1px solid #e8edf1; }
+}
+@media (max-width: 480px) {
+  .staff-roster-info-head { padding: 9px 12px; }
+  .staff-roster-info h2 { font-size: 18px; }
+  .staff-roster-info-grid { grid-template-columns: 1fr 1fr; }
+  .staff-roster-info-grid > div { padding: 8px 10px; }
+}

@@ -65,6 +65,12 @@ function getCurrentUser() {
 
 function Lines() {
 
+  const {
+    selectedDatasetId
+  } =
+    useDataset()
+
+
   const [
     lines,
     setLines

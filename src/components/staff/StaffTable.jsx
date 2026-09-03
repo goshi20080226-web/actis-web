@@ -1,20 +1,23 @@
 function getTrackDisplay(station) {
-  if (station?.track === undefined || station?.track === null || station.track === "") {
-    return ""
+  // パーサーが OUD2 の当該駅の TrackRyakusyou から解決した値を最優先で使用。
+  const resolved = String(station?.track ?? "").trim()
+  if (resolved) return resolved
+
+  // 古い保存データ向け。固定の番線一覧や1始まり/0始まりの決め打ちはしない。
+  const raw = String(station?.trackIdx ?? station?.trackKey ?? "").trim()
+  const tracks = Array.isArray(station?.tracks) ? station.tracks : []
+  if (!raw || !tracks.length) return ""
+
+  // trackIdx が駅自身の TrackRyakusyou 配列の添字として保存されている場合のみ参照。
+  const index = /^\d+$/.test(raw) ? Number(raw) : NaN
+  if (Number.isInteger(index) && index >= 0 && index < tracks.length) {
+    const value = String(tracks[index] ?? "").trim()
+    if (value) return value
   }
 
-  const trackKey = String(station.track).trim()
-
-  if (station.trackName) return String(station.trackName)
-
-  if (Array.isArray(station.tracks)) {
-    const index = Number(trackKey)
-    if (Number.isInteger(index) && station.tracks[index] !== undefined && station.tracks[index] !== "") {
-      return String(station.tracks[index])
-    }
-  }
-
-  return trackKey
+  // すでに TrackRyakusyou の値そのものが保存されている場合。
+  const exact = tracks.find((value) => String(value ?? "").trim() === raw)
+  return exact !== undefined ? String(exact).trim() : ""
 }
 
 function parseTime(value) {
@@ -53,7 +56,57 @@ function formatTime(value, className = "") {
   )
 }
 
-function formatRemark(remark) {
+function resolveTrackRyakusyou(station, trackValue) {
+  const raw = String(trackValue ?? "").trim()
+  if (!raw) return ""
+
+  const tracks = Array.isArray(station?.tracks)
+    ? station.tracks
+    : []
+
+  if (!tracks.length) return ""
+
+  /*
+   * この駅自身の TrackRyakusyou 配列を参照する。
+   * TrackRyakusyou の件数・値はデータごと、駅ごとに異なるため
+   * 固定の番線マップは使用しない。
+   */
+  const numeric = /^-?\d+$/.test(raw)
+    ? Number(raw)
+    : NaN
+
+  if (Number.isInteger(numeric)) {
+    if (
+      numeric >= 0 &&
+      numeric < tracks.length &&
+      tracks[numeric] !== undefined &&
+      String(tracks[numeric]).trim() !== ""
+    ) {
+      return String(tracks[numeric]).trim()
+    }
+
+    // 1始まりのデータにも対応。
+    const oneBased = numeric - 1
+    if (
+      oneBased >= 0 &&
+      oneBased < tracks.length &&
+      tracks[oneBased] !== undefined &&
+      String(tracks[oneBased]).trim() !== ""
+    ) {
+      return String(tracks[oneBased]).trim()
+    }
+  }
+
+  const exact = tracks.find(
+    (value) => String(value ?? "").trim() === raw
+  )
+
+  return exact !== undefined
+    ? String(exact).trim()
+    : ""
+}
+
+function formatRemark(remark, station) {
   if (!remark) return ""
   if (typeof remark === "string") return remark.trim()
 
@@ -61,19 +114,28 @@ function formatRemark(remark) {
   if (label === "入区") label = "入庫"
 
   const time = String(remark.time || "").trim()
-  const track = String(remark.trackName || remark.track || remark.trackKey || "").trim()
+  const rawTrack = remark.trackName || remark.track || remark.trackKey || ""
+  const track = resolveTrackRyakusyou(station, rawTrack)
 
   return [label, time, track].filter(Boolean).join(" ")
 }
 
-function getRemarks(station) {
+function getRemarks(station, stationRemarks = {}) {
   const result = []
   const operationRemarks = Array.isArray(station?.operationRemarks) ? station.operationRemarks : []
 
   for (const remark of operationRemarks) {
-    const text = formatRemark(remark)
+    const text = formatRemark(remark, station)
     if (text) result.push(text)
   }
+
+  const stationName = String(station?.name || "").trim()
+  const stationShortName = String(station?.shortName || "").trim()
+  const crewChange = String(
+    stationRemarks?.[stationName] || stationRemarks?.[stationShortName] || ""
+  ).trim()
+
+  if (crewChange) result.push(crewChange)
 
   const manualRemark = String(station?.remarks || "").trim()
   if (manualRemark) result.push(manualRemark)
@@ -85,7 +147,7 @@ function isOperationRemark(text) {
   return /^(出庫|入庫|入換発)/.test(String(text).trim())
 }
 
-function StaffTable({ stations = [] }) {
+function StaffTable({ stations = [], stationRemarks = {} }) {
   return (
     <div className="staff-table-wrap">
       <table className="staf-table">
@@ -113,7 +175,7 @@ function StaffTable({ stations = [] }) {
             const departure = station?.departure || station?.dep || ""
             const isPass = station?.isPass === true
             const track = getTrackDisplay(station)
-            const remarks = getRemarks(station)
+            const remarks = getRemarks(station, stationRemarks)
             const isFirst = index === 0
             const isLast = index === stations.length - 1
 

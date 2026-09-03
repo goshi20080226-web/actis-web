@@ -68,122 +68,71 @@ function passengerTime(value) {
   ) {
 
     return ""
+
   }
+
 
   const text =
     String(value).trim()
+
 
   if (!text) {
     return ""
   }
 
+
   /*
-   * OUD2のEkiJikokuは
-   * 600 / 0630 / 123045 のような
-   * コロンなし形式で保存される。
-   *
-   * 旅客用表示では常に HH:MM にする。
-   * 秒は表示しない。
+   * 旅客用時刻表は必ず「時:分」だけ表示。
+   * 秒は30秒を含め、すべて非表示。
    */
 
-  const colonMatch =
+  const match =
     text.match(
       /^(\d{1,2})[:：](\d{2})(?::\d{2})?/
     )
 
-  if (colonMatch) {
+
+  if (!match) {
+
+    /*
+     * 既に HH:MM 以外の形式なら、
+     * 余計な秒らしき部分を表示しない。
+     */
+
+    const fallback =
+      text.match(
+        /^(\d{1,2})\D+(\d{2})/
+      )
+
+
+    if (!fallback) {
+      return ""
+    }
+
 
     return (
       String(
-        Number(colonMatch[1])
+        fallback[1]
       ).padStart(
         2,
         "0"
       ) +
       ":" +
-      colonMatch[2]
+      fallback[2]
     )
 
   }
 
-  const digits =
-    text.replace(
-      /[^0-9]/g,
-      ""
-    )
-
-  if (
-    digits.length < 3
-  ) {
-
-    return ""
-
-  }
-
-  let hour = ""
-  let minute = ""
-
-  if (
-    digits.length <= 4
-  ) {
-
-    hour =
-      digits.slice(
-        0,
-        -2
-      ) || "0"
-
-    minute =
-      digits.slice(
-        -2
-      )
-
-  } else {
-
-    hour =
-      digits.slice(
-        0,
-        -4
-      ) || "0"
-
-    minute =
-      digits.slice(
-        -4,
-        -2
-      )
-
-  }
-
-  const hourNumber =
-    Number(hour)
-
-  const minuteNumber =
-    Number(minute)
-
-  if (
-    !Number.isFinite(hourNumber) ||
-    !Number.isFinite(minuteNumber) ||
-    minuteNumber > 59
-  ) {
-
-    return ""
-
-  }
 
   return (
     String(
-      hourNumber
+      match[1]
     ).padStart(
       2,
       "0"
     ) +
     ":" +
-    String(
-      minuteNumber
-    ).padStart(
-      2,
-      "0"
-    )
+    match[2]
   )
 
 }
@@ -191,115 +140,26 @@ function passengerTime(value) {
 
 function timeSortValue(value) {
 
-  if (
-    value === undefined ||
-    value === null ||
-    value === ""
-  ) {
-
+  if (!value) {
     return Number.MAX_SAFE_INTEGER
-
   }
 
-  const text =
-    String(value).trim()
-
-  const colonMatch =
-    text.match(
-      /^(\d{1,2})[:：](\d{2})(?::(\d{2}))?/
+  const match =
+    String(value).match(
+      /^(\d{1,2}):(\d{2})(?::(\d{2}))?/
     )
 
-  if (colonMatch) {
-
-    return (
-      Number(colonMatch[1]) * 3600 +
-      Number(colonMatch[2]) * 60 +
-      Number(colonMatch[3] || 0)
-    )
-
-  }
-
-  const digits =
-    text.replace(
-      /[^0-9]/g,
-      ""
-    )
-
-  if (
-    digits.length < 3
-  ) {
-
+  if (!match) {
     return Number.MAX_SAFE_INTEGER
-
-  }
-
-  let hour = 0
-  let minute = 0
-  let second = 0
-
-  if (
-    digits.length <= 4
-  ) {
-
-    hour =
-      Number(
-        digits.slice(
-          0,
-          -2
-        )
-      )
-
-    minute =
-      Number(
-        digits.slice(
-          -2
-        )
-      )
-
-  } else {
-
-    hour =
-      Number(
-        digits.slice(
-          0,
-          -4
-        )
-      )
-
-    minute =
-      Number(
-        digits.slice(
-          -4,
-          -2
-        )
-      )
-
-    second =
-      Number(
-        digits.slice(
-          -2
-        )
-      )
-
-  }
-
-  if (
-    minute > 59 ||
-    second > 59
-  ) {
-
-    return Number.MAX_SAFE_INTEGER
-
   }
 
   return (
-    hour * 3600 +
-    minute * 60 +
-    second
+    Number(match[1]) * 3600 +
+    Number(match[2]) * 60 +
+    Number(match[3] || 0)
   )
 
 }
-
 
 
 // ========================================
@@ -485,21 +345,6 @@ function getTrainTypeColor(
   train
 ) {
 
-  const backColor =
-    train?.JikokuhyouBackColor ||
-    train?.jikokuhyouBackColor ||
-    train?.trainType?.JikokuhyouBackColor ||
-    train?.trainType?.jikokuhyouBackColor ||
-    ""
-
-  if (backColor) {
-    return normalizeColor(
-      backColor
-    )
-  }
-
-
-
   if (!train) {
     return ""
   }
@@ -646,17 +491,6 @@ function stationMatches(
     return false
   }
 
-  const normalizeName =
-    value =>
-      String(value || "")
-        .replace(/\s+/g, "")
-        .trim()
-
-  const target =
-    normalizeName(
-      selectedName
-    )
-
   const names = [
 
     station.name,
@@ -675,11 +509,12 @@ function stationMatches(
 
     .filter(Boolean)
     .map(
-      normalizeName
+      value =>
+        String(value).trim()
     )
 
   return names.includes(
-    target
+    String(selectedName).trim()
   )
 
 }
@@ -740,168 +575,286 @@ function Timetable() {
 
 
   // ======================================
-  // Firebase
+  // データセット
   // ======================================
 
   useEffect(() => {
 
     let cancelled = false
 
-    const load =
-      async () => {
+    const load = async () => {
 
-        try {
+      try {
 
-          setLoading(true)
-          setError("")
+        setLoading(true)
+        setError("")
 
-          const user =
-            await getCurrentUser()
+        /*
+         * 現在選択中のDatasetを基本データとして使用。
+         *
+         * upload.jsx では
+         * users/{uid}/datasets/{datasetId}/files
+         * に、パース済みOUD2データを保存している。
+         *
+         * 旅客時刻表もDataset単位で扱うことで、
+         * users/{uid}/trains / lines の古い・欠落した
+         * データに依存しないようにする。
+         */
 
-          if (!user) {
+        const files =
+          Array.isArray(selectedDataset?.files)
+            ? selectedDataset.files
+            : []
 
-            setError(
-              "ACTISアカウントにログインしてください。"
+        if (files.length > 0) {
+
+          const lineList =
+            files.map(
+              (file, index) => ({
+
+                id:
+                  `${selectedDatasetId || "dataset"}_line_${index}`,
+
+                name:
+                  file?.railwayName ||
+                  file?.fileName ||
+                  `路線${index + 1}`,
+
+                railwayName:
+                  file?.railwayName ||
+                  "",
+
+                fileName:
+                  file?.fileName ||
+                  "",
+
+                stations:
+                  Array.isArray(file?.stations)
+                    ? file.stations
+                    : [],
+
+                downAlias:
+                  file?.downAlias ||
+                  "",
+
+                upAlias:
+                  file?.upAlias ||
+                  "",
+
+                datasetId:
+                  selectedDatasetId
+
+              })
             )
 
-            return
+          const trainList = []
 
-          }
+          files.forEach(
+            file => {
 
-          const [
-            linesSnapshot,
-            trainsSnapshot
-          ] =
-            await Promise.all([
+              ;["Kudari", "Nobori"].forEach(
+                dir => {
 
-              get(
-                ref(
-                  database,
-                  `users/${user.uid}/lines`
-                )
-              ),
+                  const list =
+                    Array.isArray(
+                      file?.trains?.[dir]
+                    )
+                      ? file.trains[dir]
+                      : []
 
-              get(
-                ref(
-                  database,
-                  `users/${user.uid}/trains`
-                )
+                  list.forEach(
+                    (train, index) => {
+
+                      if (!train) {
+                        return
+                      }
+
+                      trainList.push({
+
+                        ...train,
+
+                        direction:
+                          train.direction ||
+                          dir,
+
+                        trainId:
+                          train.trainId ||
+                          train.trainNo ||
+                          `${file?.fileName || "file"}_${dir}_${index}`,
+
+                        datasetId:
+                          selectedDatasetId,
+
+                        sourceFile:
+                          file?.fileName ||
+                          ""
+
+                      })
+
+                    }
+                  )
+
+                }
               )
 
-            ])
+            }
+          )
 
           if (cancelled) {
             return
           }
 
-          const lineObject =
-            linesSnapshot.exists()
-              ? linesSnapshot.val()
-              : {}
+          setLines(lineList)
+          setTrains(trainList)
 
-          const trainObject =
-            trainsSnapshot.exists()
-              ? trainsSnapshot.val()
-              : {}
-
-          const lineList =
-            Object.entries(
-              lineObject
-            )
-              .filter(
-                ([, value]) =>
-                  !selectedDatasetId ||
-                  String(
-                    value?.datasetId || ""
-                  ) ===
-                  String(
-                    selectedDatasetId
-                  )
+          setSelectedLine(
+            current =>
+              lineList.some(
+                line =>
+                  line.id === current
               )
-              .map(
-              (
-                [id, value]
-              ) => ({
+                ? current
+                : lineList[0]?.id || ""
+          )
 
+          return
+
+        }
+
+        /*
+         * Datasetにfilesがない旧データについては、
+         * 既存のフラット保存データをフォールバックとして読む。
+         */
+
+        const user =
+          await getCurrentUser()
+
+        if (!user) {
+
+          throw new Error(
+            "ACTISアカウントにログインしてください。"
+          )
+
+        }
+
+        const [
+          linesSnapshot,
+          trainsSnapshot
+        ] =
+          await Promise.all([
+
+            get(
+              ref(
+                database,
+                `users/${user.uid}/lines`
+              )
+            ),
+
+            get(
+              ref(
+                database,
+                `users/${user.uid}/trains`
+              )
+            )
+
+          ])
+
+        if (cancelled) {
+          return
+        }
+
+        const lineObject =
+          linesSnapshot.exists()
+            ? linesSnapshot.val()
+            : {}
+
+        const trainObject =
+          trainsSnapshot.exists()
+            ? trainsSnapshot.val()
+            : {}
+
+        const lineList =
+          Object.entries(
+            lineObject
+          )
+            .filter(
+              ([, value]) =>
+                !selectedDatasetId ||
+                String(value?.datasetId || "") ===
+                  String(selectedDatasetId)
+            )
+            .map(
+              ([id, value]) => ({
                 id,
-
                 ...value
-
               })
             )
 
-          const trainList =
-            Object.values(
-              trainObject
-            ).filter(
-              train =>
-                !selectedDatasetId ||
-                String(
-                  train?.datasetId || ""
-                ) ===
-                String(
-                  selectedDatasetId
-                )
-            )
-
-          setLines(
-            lineList
+        const trainList =
+          Object.values(
+            trainObject
+          ).filter(
+            train =>
+              !selectedDatasetId ||
+              String(train?.datasetId || "") ===
+                String(selectedDatasetId)
           )
 
-          setTrains(
-            trainList
-          )
+        setLines(lineList)
+        setTrains(trainList)
 
-          if (
-            lineList.length > 0
-          ) {
-
-            setSelectedLine(
-              lineList[0].id
+        setSelectedLine(
+          current =>
+            lineList.some(
+              line =>
+                line.id === current
             )
+              ? current
+              : lineList[0]?.id || ""
+        )
 
-          }
+      }
+      catch (err) {
 
-        }
-        catch (
+        console.error(
+          "Timetable load error:",
           err
-        ) {
+        )
 
-          console.error(
-            "Timetable load error:",
-            err
+        if (!cancelled) {
+
+          setError(
+            `時刻表データを取得できませんでした：${err.message}`
           )
 
-          if (!cancelled) {
-
-            setError(
-              `時刻表データを取得できませんでした：${err.message}`
-            )
-
-          }
-
-        }
-        finally {
-
-          if (!cancelled) {
-
-            setLoading(false)
-
-          }
+          setLines([])
+          setTrains([])
+          setSelectedLine("")
+          setSelectedStation("")
 
         }
 
       }
+      finally {
+
+        if (!cancelled) {
+          setLoading(false)
+        }
+
+      }
+
+    }
 
     load()
 
     return () => {
-
       cancelled = true
-
     }
 
-  }, [selectedDatasetId])
+  }, [
+    selectedDatasetId,
+    selectedDataset
+  ])
 
 
   // ======================================
@@ -960,7 +913,11 @@ function Timetable() {
             const name =
               String(
                 station?.name ||
+                station?.Ekimei ||
+                station?.stationName ||
                 station?.shortName ||
+                station?.timeName ||
+                station?.EkimeiJikokuRyaku ||
                 ""
               ).trim()
 
@@ -970,9 +927,9 @@ function Timetable() {
 
             const shortName =
               String(
+                station?.EkimeiJikokuRyaku ||
                 station?.shortName ||
                 station?.timeName ||
-                station?.EkimeiJikokuRyaku ||
                 name
               ).trim()
 
@@ -1121,7 +1078,9 @@ function Timetable() {
 
               const destinationFull =
                 train?.destination ||
+                train?.destinationName ||
                 train?.finalDest ||
+                train?.lastStation ||
                 (
                   trainStations.length > 0
                     ? trainStations[

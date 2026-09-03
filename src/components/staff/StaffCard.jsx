@@ -1,4 +1,5 @@
 import StaffTable from "./StaffTable"
+import { useNavigate } from "react-router-dom"
 
 function getOperationNumber(train) {
   if (!train) return ""
@@ -51,7 +52,7 @@ function formatRemark(remark) {
   ].filter(Boolean).join(" ")
 }
 
-function getOperationRemarks(train) {
+function getOperationRemarks(train, rosterItem) {
   const result = []
   const source = Array.isArray(train?.operationRemarks) ? train.operationRemarks : []
 
@@ -67,14 +68,21 @@ function formatType(train) {
   return train?.typeShort || train?.type || "—"
 }
 
-function StaffCard({ train }) {
+function getTypeColor(train) {
+  const value = train?.trainTypeColor || train?.typeColor || train?.color || ""
+  const text = String(value).trim()
+  return /^#[0-9a-fA-F]{6}$/.test(text) ? text : ""
+}
+
+function StaffCard({ train, rosterItem = null, stationRemarks = {}, nextTrainNoOverride = "", previousTrainNoOverride = "" }) {
+  const navigate = useNavigate()
   const stations = Array.isArray(train?.stations) ? train.stations : []
 
   const origin = train?.origin || stations[0]?.name || "—"
   const destination = train?.destination || train?.finalDest || stations.at(-1)?.name || "—"
   const operation = getOperationNumber(train)
   const direction = train?.direction === "Kudari" ? "下り" : train?.direction === "Nobori" ? "上り" : ""
-  const operationRemarks = getOperationRemarks(train)
+  const operationRemarks = getOperationRemarks(train, rosterItem)
 
   const sequence = train?.operationSequence !== undefined && train?.operationSequence !== null
     ? String(train.operationSequence)
@@ -84,13 +92,38 @@ function StaffCard({ train }) {
     ? String(train.operationLength)
     : ""
 
-  const previousTrain = train?.previousTrainNo ? String(train.previousTrainNo) : ""
-  const nextTrain = train?.nextTrainNo ? String(train.nextTrainNo) : ""
+  const previousTrain = previousTrainNoOverride || (train?.previousTrainNo ? String(train.previousTrainNo) : "")
+  const nextTrain = nextTrainNoOverride || (train?.nextTrainNo ? String(train.nextTrainNo) : "")
+
+  const jumpToTrain = trainNo => {
+    if (!trainNo) return
+
+    const datasetId = String(train?.datasetId || "")
+    const params = new URLSearchParams()
+
+    if (datasetId) {
+      params.set("dataset", datasetId)
+    }
+
+    const query = params.toString()
+    navigate(`/staff/train/${encodeURIComponent(trainNo)}${query ? `?${query}` : ""}`)
+  }
 
   return (
     <article className="train-block staff-card-modern">
       <header className="staff-card-head">
-        <div className="staff-card-type">
+        <div
+          className="staff-card-type"
+          style={
+            getTypeColor(train)
+              ? {
+                  color: getTypeColor(train),
+                  borderColor: getTypeColor(train),
+                  backgroundColor: "#ffffff"
+                }
+              : undefined
+          }
+        >
           {formatType(train)}
         </div>
 
@@ -130,7 +163,7 @@ function StaffCard({ train }) {
         </div>
       </section>
 
-      <StaffTable stations={stations} />
+      <StaffTable stations={stations} stationRemarks={stationRemarks} />
 
       <section className="staff-notes">
         <div className="staff-section-title">特記事項</div>
@@ -150,11 +183,33 @@ function StaffCard({ train }) {
       <footer className="staff-turnback-grid">
         <div className="turnback-info">
           <div className="turnback-title">前列車</div>
-          <div className="turnback-val">{previousTrain || "—"}</div>
+          {previousTrain ? (
+            <button
+              type="button"
+              className="turnback-val turnback-link"
+              onClick={() => jumpToTrain(previousTrain)}
+              title={`${previousTrain}列車のスタフを表示`}
+            >
+              {previousTrain}
+            </button>
+          ) : (
+            <div className="turnback-val">—</div>
+          )}
         </div>
         <div className="turnback-info">
           <div className="turnback-title">次列車</div>
-          <div className="turnback-val">{nextTrain || "—"}</div>
+          {nextTrain ? (
+            <button
+              type="button"
+              className="turnback-val turnback-link"
+              onClick={() => jumpToTrain(nextTrain)}
+              title={`${nextTrain}列車のスタフを表示`}
+            >
+              {nextTrain}
+            </button>
+          ) : (
+            <div className="turnback-val">—</div>
+          )}
         </div>
       </footer>
     </article>

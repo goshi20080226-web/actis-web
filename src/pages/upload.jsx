@@ -12,7 +12,7 @@ import {
 
 import {
   ref,
-  set
+  update
 } from "firebase/database"
 
 import {
@@ -266,35 +266,6 @@ function Upload() {
 
         /*
          * ==================================
-         * Dataset
-         * ==================================
-         */
-
-        await set(
-
-          ref(
-            database,
-            `users/${uid}/datasets/${datasetId}`
-          ),
-
-          {
-
-            files:
-              datasets,
-
-            uploadedAt:
-              Date.now(),
-
-            uploadedBy:
-              uid
-
-          }
-
-        )
-
-
-        /*
-         * ==================================
          * 列車
          * ==================================
          */
@@ -408,9 +379,7 @@ function Upload() {
                 trainForFirebase.previousTrain
 
 
-              trainData[
-                trainId
-              ] =
+              trainData[trainId] =
                 trainForFirebase
 
 
@@ -421,24 +390,6 @@ function Upload() {
           }
 
         }
-
-
-        /*
-         * ==================================
-         * trains
-         * ==================================
-         */
-
-        await set(
-
-          ref(
-            database,
-            `users/${uid}/trains`
-          ),
-
-          trainData
-
-        )
 
 
         /*
@@ -470,13 +421,9 @@ function Upload() {
 
 
           const lineKey =
-            String(
-              railwayName
-            )
-              .replace(
-                /[.#$/[\]]/g,
-                "_"
-              )
+            `${datasetId}_` +
+            String(railwayName)
+              .replace(/[.#$/[\]]/g, "_")
 
 
           lineData[
@@ -514,15 +461,89 @@ function Upload() {
         }
 
 
-        await set(
+        const now =
+          Date.now()
 
-          ref(
-            database,
-            `users/${uid}/lines`
-          ),
 
-          lineData
+        const updates = {
+          [`users/${uid}/datasets/${datasetId}`]: {
+            name:
+              datasets[0]?.fileName ||
+              datasets[0]?.railwayName ||
+              "名称未設定ダイヤ",
 
+            files:
+              datasets,
+
+            fileCount:
+              datasets.length,
+
+            railwayName:
+              datasets
+                .map(dataset => dataset?.railwayName)
+                .filter(Boolean)
+                .join(" / "),
+
+            kudariCount:
+              datasets.reduce(
+                (sum, dataset) =>
+                  sum +
+                  (
+                    dataset?.trains?.Kudari?.length ||
+                    0
+                  ),
+                0
+              ),
+
+            noboriCount:
+              datasets.reduce(
+                (sum, dataset) =>
+                  sum +
+                  (
+                    dataset?.trains?.Nobori?.length ||
+                    0
+                  ),
+                0
+              ),
+
+            uploadedAt:
+              now,
+
+            createdAt:
+              now,
+
+            updatedAt:
+              now,
+
+            uploadedBy:
+              uid
+          }
+        }
+
+
+        Object.entries(trainData)
+          .forEach(
+            ([trainId, train]) => {
+              updates[
+                `users/${uid}/trains/${trainId}`
+              ] = train
+            }
+          )
+
+
+        Object.entries(lineData)
+          .forEach(
+            ([lineId, line]) => {
+              updates[
+                `users/${uid}/lines/${lineId}`
+              ] = line
+            }
+          )
+
+
+        await update(
+          ref(database),
+          updates
         )
 
 

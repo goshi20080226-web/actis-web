@@ -761,6 +761,15 @@ function TrainCard({
 
             <span
               className="operation-train-type"
+              style={
+                /^#[0-9a-fA-F]{6}$/.test(String(train.trainTypeColor || "").trim())
+                  ? {
+                      color: String(train.trainTypeColor).trim(),
+                      borderColor: String(train.trainTypeColor).trim(),
+                      backgroundColor: "#ffffff"
+                    }
+                  : undefined
+              }
             >
 
               {train.typeShort ||

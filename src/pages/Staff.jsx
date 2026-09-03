@@ -13,7 +13,8 @@ import {
 } from "firebase/auth"
 
 import {
-  useParams
+  useParams,
+  useSearchParams
 } from "react-router-dom"
 
 import {
@@ -408,9 +409,30 @@ function applyTerminalOperations(
 function Staff() {
 
   const {
+    selectedDatasetId
+  } =
+    useDataset()
+
+
+  const {
     trainId
   } =
     useParams()
+
+
+  const [
+    searchParams
+  ] =
+    useSearchParams()
+
+  const trainNo =
+    searchParams.get("trainNo") ||
+    trainId ||
+    ""
+
+  const datasetFromUrl =
+    searchParams.get("dataset") ||
+    ""
 
 
   const [
@@ -432,6 +454,12 @@ function Staff() {
     setError
   ] =
     useState("")
+
+  const [
+    rosterInfo,
+    setRosterInfo
+  ] =
+    useState(null)
 
 
   useEffect(() => {
@@ -475,50 +503,114 @@ function Staff() {
            * ==================================
            */
 
-          const snapshot =
-            await get(
+          let data = null
 
-              ref(
-                database,
-                `users/${user.uid}/trains/${trainId}`
+          if (trainId) {
+            const snapshot =
+              await get(
+                ref(
+                  database,
+                  `users/${user.uid}/trains/${trainId}`
+                )
               )
 
-            )
+            if (snapshot.exists()) {
+              data = snapshot.val()
+            }
+          }
+          if (!data && trainNo) {
+            const snapshot =
+              await get(
+                ref(
+                  database,
+                  `users/${user.uid}/trains`
+                )
+              )
 
+            if (snapshot.exists()) {
+              const allTrains = snapshot.val() || {}
+              const wantedDataset =
+                datasetFromUrl || selectedDatasetId || ""
 
-          if (
-            cancelled
-          ) {
+              const candidates = Object.entries(allTrains)
+                .map(([id, value]) => ({ id, ...(value || {}) }))
+                .filter(item =>
+                  String(item.trainNo || "") === String(trainNo) &&
+                  (!wantedDataset || String(item.datasetId || "") === String(wantedDataset))
+                )
 
-            return
-
+              data = candidates[0] || null
+            }
           }
 
+          if (cancelled) {
+            return
+          }
 
-          if (
-            !snapshot.exists()
-          ) {
-
+          if (!data) {
             setError(
               "指定された列車が見つかりません。"
             )
-
             return
-
           }
 
 
-          const data =
-            snapshot.val()
+          const effectiveDatasetId =
+            datasetFromUrl || selectedDatasetId
 
+          // 現在の列車が含まれる乗務員行路を取得
+          let matchedRoster = null
+          if (effectiveDatasetId) {
+            const rosterSnapshot = await get(
+              ref(
+                database,
+                `users/${user.uid}/datasets/${effectiveDatasetId}/crewRosters`
+              )
+            )
+
+            if (rosterSnapshot.exists()) {
+              const rosterValue = rosterSnapshot.val() || {}
+              for (const [rosterId, roster] of Object.entries(rosterValue)) {
+                const items = Array.isArray(roster?.items) ? roster.items : []
+                const itemIndex = items.findIndex(item =>
+                  item?.type === "train" &&
+                  String(item?.trainId || "") === String(trainId || data.id || "")
+                )
+
+                // 列車IDが保存されていない旧データ向けに列番でも照合
+                const fallbackIndex = itemIndex >= 0
+                  ? itemIndex
+                  : items.findIndex(item =>
+                      item?.type === "train" &&
+                      String(item?.trainNo || "") === String(data.trainNo || "")
+                    )
+
+                if (fallbackIndex >= 0) {
+                  matchedRoster = {
+                    id: rosterId,
+                    ...(roster || {}),
+                    itemIndex: fallbackIndex,
+                    items
+                  }
+                  break
+                }
+              }
+            }
+          }
+
+          if (cancelled) {
+            return
+          }
+
+          setRosterInfo(matchedRoster)
 
           if (
-            selectedDatasetId &&
+            effectiveDatasetId &&
             String(
               data.datasetId || ""
             ) !==
             String(
-              selectedDatasetId
+              effectiveDatasetId
             )
           ) {
 
@@ -834,7 +926,7 @@ function Staff() {
 
     }
 
-  }, [trainId, selectedDatasetId])
+  }, [trainId, trainNo, datasetFromUrl, selectedDatasetId])
 
 
   if (
@@ -892,6 +984,30 @@ function Staff() {
   }
 
 
+  const currentRosterItem = rosterInfo?.items?.[rosterInfo.itemIndex] || null
+
+  // 行路一覧から開いたスタフでは、次列車をOUD2の列車連結ではなく
+  // 「同じ行路で次に運転する列車」として表示する。
+  const nextRosterTrainItem = (() => {
+    if (!rosterInfo?.items || rosterInfo.itemIndex === undefined) return null
+    for (let i = Number(rosterInfo.itemIndex) + 1; i < rosterInfo.items.length; i += 1) {
+      const item = rosterInfo.items[i]
+      if (item?.type === "train") return item
+    }
+    return null
+  })()
+
+  // 行路で指定した交代駅を、その駅の「記事」へ入れる。
+  // 前交代＝その列車で乗務を開始する駅、後交代＝乗務を終了する駅。
+  const rosterStationRemarks = (() => {
+    const result = {}
+    const before = String(currentRosterItem?.beforeChangeStation || "").trim()
+    const after = String(currentRosterItem?.afterChangeStation || "").trim()
+    if (before) result[before] = "乗務員交代"
+    if (after) result[after] = result[after] ? `${result[after]} / 乗務員交代` : "乗務員交代"
+    return result
+  })()
+
   return (
 
     <div>
@@ -903,12 +1019,82 @@ function Staff() {
       </h1>
 
 
+      {rosterInfo && (
+        <section className="staff-roster-info">
+          <div className="staff-roster-info-head">
+            <div>
+              <span className="staff-roster-info-label">行路情報</span>
+              <h2>{rosterInfo.name || "名称未設定"}</h2>
+            </div>
+            <span className="staff-roster-info-type">
+              {rosterInfo.crewType || "乗務員"}
+            </span>
+          </div>
+
+          <div className="staff-roster-info-grid">
+            <div>
+              <span>行路内順序</span>
+              <strong>
+                {rosterInfo.itemIndex + 1} / {rosterInfo.items.length}
+              </strong>
+            </div>
+            <div>
+              <span>列車数</span>
+              <strong>
+                {rosterInfo.items.filter(item => item?.type === "train").length}列車
+              </strong>
+            </div>
+            <div>
+              <span>行路ID</span>
+              <strong>{rosterInfo.id}</strong>
+            </div>
+          </div>
+
+          <div className="staff-roster-info-sequence">
+            {rosterInfo.items.map((item, index) => {
+              if (item?.type !== "train") {
+                const labels = {
+                  change: "乗務員交代",
+                  break: "休憩",
+                  wait: "待機",
+                  report: "出勤",
+                  finish: "退勤"
+                }
+                return (
+                  <span
+                    key={`roster-event-${index}`}
+                    className="staff-roster-sequence-event"
+                  >
+                    {labels[item?.type] || "イベント"}
+                  </span>
+                )
+              }
+
+              const active = String(item.trainId || "") === String(train.id || trainId || "")
+                || String(item.trainNo || "") === String(train.trainNo || "")
+
+              return (
+                <span
+                  key={`roster-train-${index}`}
+                  className={`staff-roster-sequence-train ${active ? "active" : ""}`}
+                >
+                  {item.trainNo || "—"}
+                </span>
+              )
+            })}
+          </div>
+        </section>
+      )}
+
       <div
         className="trains-container"
       >
 
         <StaffCard
           train={train}
+          rosterItem={currentRosterItem}
+          stationRemarks={rosterStationRemarks}
+          nextTrainNoOverride={nextRosterTrainItem?.trainNo || ""}
         />
 
       </div>

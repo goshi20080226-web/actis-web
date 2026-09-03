@@ -1,291 +1,736 @@
-function normalizeTime(value) {
-  return value == null ? "" : String(value).trim()
-}
+/*
+ * ACTIS OUD2 Parser
+ *
+ * OUD2
+ *  ↓
+ * 駅
+ * 列車
+ * 時刻
+ * 番線
+ * stopType
+ * Operation
+ *  ↓
+ * ACTIS用JSON
+ */
 
-function timeToSeconds(value) {
-  const text = normalizeTime(value).replace(/[^0-9]/g, "")
-  if (!text) return -1
 
-  let hour
-  let minute
-  let second = 0
+// ========================================
+// 共通
+// ========================================
 
-  if (text.length <= 4) {
-    hour = Number(text.slice(0, -2) || 0)
-    minute = Number(text.slice(-2))
-  } else {
-    hour = Number(text.slice(0, -4) || 0)
-    minute = Number(text.slice(-4, -2))
-    second = Number(text.slice(-2))
+function normalizeTime(time) {
+
+  if (!time) {
+    return ""
   }
 
-  if (
-    Number.isNaN(hour) ||
-    Number.isNaN(minute) ||
-    Number.isNaN(second)
-  ) {
-    return -1
+  return String(time).trim()
+}
+
+
+// ========================================
+// Operation時刻
+// ========================================
+
+function normalizeOperationTime(raw) {
+
+  if (!raw) {
+    return ""
   }
 
-  return hour * 3600 + minute * 60 + second
-}
+  const value =
+    String(raw)
+      .replace(/[^0-9]/g, "")
 
-function normalizeStationName(value) {
-  return String(value || "")
-    .replace(/\s+/g, "")
-    .trim()
-}
 
-function normalizeOperationTime(value) {
-  const text = String(value || "").replace(/[^0-9]/g, "")
-  if (!text) return ""
-
-  if (text.length <= 4) {
-    return `${text.slice(0, -2) || "0"}:${text.slice(-2)}`
+  if (value.length < 3) {
+    return ""
   }
 
-  const hour = text.slice(0, -4) || "0"
-  const minute = text.slice(-4, -2)
-  const second = text.slice(-2)
 
-  return second === "00"
-    ? `${hour}:${minute}`
-    : `${hour}:${minute}:${second}`
+  if (value.length <= 4) {
+
+    const hour =
+      value.slice(0, -2) || "0"
+
+    const minute =
+      value.slice(-2)
+
+    return `${hour}:${minute}`
+  }
+
+
+  const hour =
+    value.slice(0, -4) || "0"
+
+  const minute =
+    value.slice(-4, -2)
+
+  const second =
+    value.slice(-2)
+
+
+  if (second === "00") {
+
+    return `${hour}:${minute}`
+
+  }
+
+
+  return `${hour}:${minute}:${second}`
 }
 
-function getFirstStation(train) {
-  return Array.isArray(train?.stations)
-    ? train.stations[0] || null
-    : null
-}
 
-function getLastStation(train) {
-  return Array.isArray(train?.stations)
-    ? train.stations[train.stations.length - 1] || null
-    : null
-}
+// ========================================
+// Operation番線キー
+// ========================================
 
 function extractOperationTrackKey(value) {
-  const text = String(value || "")
-  const first = text.split(",")[0] || text
 
-  let match = first.match(/^\s*\d+\/(\d+)/)
-  if (match) return match[1]
+  const text =
+    String(value || "")
 
-  match = first.match(/\$\/(\d+)/)
-  if (match) return match[1]
+
+  const firstToken =
+    text.split(",")[0] || text
+
+
+  /*
+   * 例:
+   * 0/1
+   * 9/2
+   */
+
+  let match =
+    firstToken.match(
+      /^\s*\d+\/(\d+)/
+    )
+
+
+  if (match) {
+    return match[1]
+  }
+
+
+  /*
+   * 例:
+   * $/1
+   */
+
+  match =
+    firstToken.match(
+      /\$\/(\d+)/
+    )
+
+
+  if (match) {
+    return match[1]
+  }
+
 
   return ""
 }
 
-function parseOperationNotes(rawValue, side) {
-  if (!rawValue) return []
+
+// ========================================
+// Operation解析
+// ========================================
+
+function parseOperationNotes(
+  rawValue,
+  side
+) {
 
   const notes = []
 
-  for (const token of String(rawValue).split(",")) {
-    const value = token.trim()
-    if (!value) continue
 
-    const parts = value.split("$")
-    const head = (parts[0] || "").trim()
-    const trackKey = extractOperationTrackKey(value)
-
-    if (
-      /^5\s*\/\s*\$?0\s*$/.test(value) ||
-      /^5\s*\/\s*$/.test(head)
-    ) {
-      continue
-    }
-
-    const depotMatch = head.match(/^3\/(\d{3,6})/)
-    if (depotMatch) {
-      notes.push({
-        label: side === "A" ? "入区" : "出庫",
-        time: depotMatch[1],
-        side,
-        trackKey: ""
-      })
-      continue
-    }
-
-    let time = ""
-
-    for (let i = 1; i < parts.length; i++) {
-      const match = String(parts[i] || "").match(/(\d{3,6})\/(\d{0,6})/)
-      if (match) {
-        time = match[1]
-        break
-      }
-    }
-
-    if (!time) {
-      const match = value.match(/\$(\d{3,6})\//)
-      if (match) time = match[1]
-    }
-
-    if (time) {
-      notes.push({
-        label: "入換発",
-        time,
-        side,
-        trackKey
-      })
-    }
+  if (!rawValue) {
+    return notes
   }
 
-  const seen = new Set()
 
-  return notes.filter(note => {
-    const key = `${note.label}|${note.time}|${note.trackKey}`
-    if (seen.has(key)) return false
-    seen.add(key)
-    return true
-  })
+  String(rawValue)
+    .split(",")
+    .forEach((token) => {
+
+      const value =
+        token.trim()
+
+
+      if (!value) {
+        return
+      }
+
+
+      const parts =
+        value.split("$")
+
+
+      const head =
+        (parts[0] || "").trim()
+
+
+      const trackKey =
+        extractOperationTrackKey(value)
+
+
+      /*
+       * 5/$0
+       *
+       * 時刻なしなので
+       * 特記事項には表示しない
+       */
+
+      if (
+        /^5\s*\/\s*\$?0\s*$/.test(value) ||
+        /^5\s*\/\s*$/.test(head)
+      ) {
+
+        return
+
+      }
+
+
+      /*
+       * 3/時刻
+       *
+       * B → 出庫
+       * A → 入区
+       */
+
+      const depotMatch =
+        head.match(
+          /^3\/(\d{3,6})/
+        )
+
+
+      if (depotMatch) {
+
+        notes.push({
+
+          label:
+            side === "A"
+              ? "入区"
+              : "出庫",
+
+          time:
+            depotMatch[1],
+
+          side,
+
+          trackKey: ""
+
+        })
+
+
+        return
+      }
+
+
+      /*
+       * 入換発
+       *
+       * $の後ろに
+       * 時刻/時刻
+       */
+
+      let time = ""
+
+
+      for (
+        let i = 1;
+        i < parts.length;
+        i++
+      ) {
+
+        const match =
+          String(parts[i] || "")
+            .match(
+              /(\d{3,6})\/(\d{0,6})/
+            )
+
+
+        if (match) {
+
+          time =
+            match[1]
+
+          break
+
+        }
+
+      }
+
+
+      /*
+       * 別形式
+       */
+
+      if (!time) {
+
+        const match =
+          value.match(
+            /\$(\d{3,6})\//
+          )
+
+
+        if (match) {
+
+          time =
+            match[1]
+
+        }
+
+      }
+
+
+      if (time) {
+
+        notes.push({
+
+          label:
+            "入換発",
+
+          time,
+
+          side,
+
+          trackKey
+
+        })
+
+      }
+
+    })
+
+
+  /*
+   * 重複削除
+   */
+
+  const seen =
+    new Set()
+
+
+  return notes.filter(
+    (note) => {
+
+      const key =
+        `${note.label}|${note.time}|${note.trackKey}`
+
+
+      if (seen.has(key)) {
+        return false
+      }
+
+
+      seen.add(key)
+
+      return true
+
+    }
+  )
 }
 
-function parseOperationLine(train, line) {
-  if (!train || !line) return
 
-  const match = String(line).match(
-    /^Operation(\d+)([AB])=(.*)$/
-  )
+// ========================================
+// Operation○○A/B
+// ========================================
 
-  if (!match) return
+function parseOperationLine(
+  train,
+  line
+) {
 
-  const rawIndex = Number(match[1])
-  const side = match[2]
-  const value = match[3] || ""
-
-  const notes = parseOperationNotes(value, side)
-
-  if (!Array.isArray(train.operationLines)) {
-    train.operationLines = []
+  if (!train || !line) {
+    return
   }
+
+
+  const match =
+    String(line).match(
+      /^Operation(\d+)([AB])=(.*)$/
+    )
+
+
+  if (!match) {
+    return
+  }
+
+
+  const rawIndex =
+    parseInt(
+      match[1],
+      10
+    )
+
+
+  const side =
+    match[2]
+
+
+  const value =
+    match[3] || ""
+
+
+  /*
+   * Operationそのものを保存
+   */
+
+  if (
+    !Array.isArray(
+      train.operationLines
+    )
+  ) {
+
+    train.operationLines = []
+
+  }
+
+
+  const notes =
+    parseOperationNotes(
+      value,
+      side
+    )
+
 
   train.operationLines.push({
+
     rawIndex,
+
     side,
+
     value,
+
     notes
+
   })
 
-  if (!Array.isArray(train.operationRemarks)) {
+
+  /*
+   * スタフ特記事項用
+   */
+
+  if (
+    !Array.isArray(
+      train.operationRemarks
+    )
+  ) {
+
     train.operationRemarks = []
+
   }
 
-  for (const note of notes) {
-    train.operationRemarks.push({
-      rawIndex,
-      side,
-      label: note.label,
-      time: normalizeOperationTime(note.time),
-      trackKey: note.trackKey || ""
-    })
-  }
 
-  const operationMatch = value.match(/\$\/([^,]+)/)
+  notes.forEach(
+    (note) => {
+
+      train.operationRemarks.push({
+
+        rawIndex,
+
+        side,
+
+        label:
+          note.label,
+
+        time:
+          normalizeOperationTime(
+            note.time
+          ),
+
+        trackKey:
+          note.trackKey || ""
+
+      })
+
+    }
+  )
+
+
+  /*
+   * 運用番号
+   *
+   * $/A01
+   * $/101
+   * など
+   */
+
+  const operationMatch =
+    value.match(
+      /\$\/([^,]+)/
+    )
+
 
   if (
     operationMatch &&
-    operationMatch[1] &&
-    !train.unyo
+    operationMatch[1]
   ) {
-    train.unyo = operationMatch[1].trim()
+
+    const operation =
+      operationMatch[1].trim()
+
+
+    if (!train.unyo) {
+
+      train.unyo =
+        operation
+
+    }
+
   }
 }
 
-function parseEkiJikoku(value) {
-  if (!value) return []
 
-  return String(value).split(",").map(item => {
-    if (!item) {
-      return {
-        arrival: "",
-        departure: "",
-        single: "",
-        trackIdx: "",
-        isPass: false,
-        stopType: "3",
-        typeChangeRef: null
+// ========================================
+// EkiJikoku
+// ========================================
+
+function parseEkiJikoku(text) {
+
+  if (!text) {
+    return []
+  }
+
+
+  return String(text)
+    .split(",")
+    .map((value) => {
+
+      if (!value) {
+
+        return {
+
+          arrival: "",
+          departure: "",
+          single: "",
+
+          trackIdx: "",
+
+          isPass: false,
+
+          stopType: "3",
+
+          typeChangeRef: null
+
+        }
+
       }
-    }
 
-    let text = item.trim()
-    let trackIdx = ""
 
-    const dollarIndex = text.indexOf("$")
+      let temp =
+        value.trim()
 
-    if (dollarIndex !== -1) {
-      trackIdx = text.slice(dollarIndex + 1)
-      text = text.slice(0, dollarIndex)
-    }
 
-    let stopType = "1"
-    let arrival = ""
-    let departure = ""
-    let single = ""
+      /*
+       * $
+       */
 
-    const semicolon = text.indexOf(";")
+      const dollarParts =
+        temp.split("$")
 
-    if (semicolon !== -1) {
-      stopType = text.slice(0, semicolon)
 
-      const time = text.slice(semicolon + 1)
+      let trackIdx = ""
 
-      if (time.includes("/")) {
-        const parts = time.split("/")
-        arrival = normalizeTime(parts[0])
-        departure = normalizeTime(parts[1])
+
+      if (
+        dollarParts.length > 1
+      ) {
+
+        temp =
+          dollarParts[0]
+
+        trackIdx =
+          dollarParts[1] || ""
+
+      }
+
+
+      /*
+       * ;
+       */
+
+      let stopType =
+        "1"
+
+      let arrival =
+        ""
+
+      let departure =
+        ""
+
+      let single =
+        ""
+
+
+      const semicolon =
+        temp.indexOf(";")
+
+
+      if (
+        semicolon !== -1
+      ) {
+
+        stopType =
+          temp.slice(
+            0,
+            semicolon
+          )
+
+
+        const time =
+          temp.slice(
+            semicolon + 1
+          )
+
+
+        /*
+         * 着/発
+         */
+
+        if (
+          time.includes("/")
+        ) {
+
+          const parts =
+            time.split("/")
+
+
+          arrival =
+            normalizeTime(
+              parts[0]
+            )
+
+
+          departure =
+            normalizeTime(
+              parts[1]
+            )
+
+        }
+
+        /*
+         * 片側時刻
+         */
+
+        else {
+
+          single =
+            normalizeTime(
+              time
+            )
+
+        }
+
       } else {
-        single = normalizeTime(time)
-      }
-    } else {
-      stopType = text
-    }
 
-    return {
-      arrival,
-      departure,
-      single,
-      trackIdx,
-      isPass: stopType === "2",
-      stopType,
-      typeChangeRef: null
-    }
-  })
+        stopType =
+          temp
+
+      }
+
+
+      return {
+
+        arrival,
+
+        departure,
+
+        single,
+
+        trackIdx,
+
+        isPass:
+          stopType === "2",
+
+        stopType,
+
+        typeChangeRef:
+          null
+
+      }
+
+    })
 }
 
-function getTrackDisplay(station, trackIdx) {
+
+// ========================================
+// 駅の番線
+// ========================================
+
+function getTrackDisplay(
+  station,
+  trackIdx
+) {
   if (
     trackIdx === "" ||
-    trackIdx == null
+    trackIdx === null ||
+    trackIdx === undefined
   ) {
     return ""
   }
 
-  if (
-    !station ||
-    !Array.isArray(station.tracks)
-  ) {
-    return String(trackIdx)
+  const tracks = Array.isArray(station?.tracks)
+    ? station.tracks
+    : []
+
+  if (!tracks.length) {
+    return ""
   }
 
-  const index = Number.parseInt(trackIdx, 10)
+  const raw = String(trackIdx).trim()
+  if (!raw) return ""
 
-  if (Number.isNaN(index)) {
-    return String(trackIdx)
+  /*
+   * EkiJikoku の $値は、この駅自身が持つ
+   * TrackRyakusyou の並びを参照して解決する。
+   *
+   * TrackRyakusyou の内容や件数はOUD2データごと・駅ごとに
+   * 異なるため、固定の番線一覧や「3以上なら○」のような
+   * 決め打ちはしない。
+   */
+  const numeric = /^-?\d+$/.test(raw)
+    ? Number(raw)
+    : NaN
+
+  if (Number.isInteger(numeric)) {
+    // OUD2のtrack indexを、現在の駅の配列に対して解決。
+    if (
+      numeric >= 0 &&
+      numeric < tracks.length &&
+      tracks[numeric] !== undefined &&
+      String(tracks[numeric]).trim() !== ""
+    ) {
+      return String(tracks[numeric]).trim()
+    }
+
+    // データ互換: そのデータで1始まりの指定になっている場合。
+    const oneBased = numeric - 1
+    if (
+      oneBased >= 0 &&
+      oneBased < tracks.length &&
+      tracks[oneBased] !== undefined &&
+      String(tracks[oneBased]).trim() !== ""
+    ) {
+      return String(tracks[oneBased]).trim()
+    }
   }
 
-  if (
-    station.tracks[index] !== undefined &&
-    station.tracks[index] !== ""
-  ) {
-    return station.tracks[index]
-  }
+  // すでにTrackRyakusyouの文字列が渡されている場合。
+  const exact = tracks.find(
+    (value) => String(value ?? "").trim() === raw
+  )
 
-  return String(trackIdx)
+  return exact !== undefined
+    ? String(exact).trim()
+    : ""
 }
+
+
+// ========================================
+// 駅時刻作成
+// ========================================
 
 function createStationTimes(
   stations,
@@ -293,213 +738,566 @@ function createStationTimes(
   direction,
   operationRemarks = []
 ) {
-  if (
-    !Array.isArray(stations) ||
-    !Array.isArray(ekiJikoku)
-  ) {
-    return []
-  }
 
   const result = []
-  const count = Math.min(
-    stations.length,
-    ekiJikoku.length
-  )
 
-  for (let i = 0; i < count; i++) {
-    const raw = ekiJikoku[i] || {}
+
+  const count =
+    Math.min(
+      stations.length,
+      ekiJikoku.length
+    )
+
+
+  for (
+    let i = 0;
+    i < count;
+    i++
+  ) {
+
+    const raw =
+      ekiJikoku[i] || {}
+
+
+    /*
+     * 上りは駅順を反転
+     */
 
     const stationIndex =
       direction === "Nobori"
         ? stations.length - 1 - i
         : i
 
-    const station = stations[stationIndex]
 
-    if (!station) continue
+    const station =
+      stations[stationIndex]
+
+
+    if (!station) {
+      continue
+    }
+
+
+    /*
+     * Operation特記事項
+     */
 
     const stationOperationRemarks =
       operationRemarks.filter(
-        remark =>
-          Number(remark.rawIndex) === i
+        (remark) =>
+          Number(
+            remark.rawIndex
+          ) === i
       )
+
 
     result.push({
       rawIndex: i,
-      name: station.name || "",
-      shortName: station.timeName || "",
-      diagramName: station.diagramName || "",
-      trackIdx: raw.trackIdx || "",
-      track: getTrackDisplay(
-        station,
-        raw.trackIdx
-      ),
-      arrival: raw.arrival || "",
-      departure: raw.departure || "",
-      single: raw.single || "",
-      isPass: raw.isPass === true,
-      stopType: raw.stopType ?? "1",
-      typeChangeRef: raw.typeChangeRef ?? null,
-      remarks: "",
+      name:
+        station.name || "",
+
+      shortName:
+        station.timeName || "",
+
+      diagramName:
+        station.diagramName || "",
+
+      trackIdx:
+        raw.trackIdx || "",
+
+      track:
+        getTrackDisplay(
+          station,
+          raw.trackIdx
+        ),
+
+      // スタフ表示では必ず OUD2 の TrackRyakusyou を参照できるよう保持
+      tracks:
+        Array.isArray(station.tracks) ? [...station.tracks] : [],
+
+      arrival:
+        raw.arrival || "",
+
+      departure:
+        raw.departure || "",
+
+      single:
+        raw.single || "",
+
+      isPass:
+        raw.isPass === true,
+
+      stopType:
+        raw.stopType ?? "1",
+
+      typeChangeRef:
+        raw.typeChangeRef,
+
+      remarks:
+        "",
+
       operationRemarks:
         stationOperationRemarks
+
     })
+
   }
+
+
+  /*
+   * 実際の運転区間
+   */
 
   let start = -1
   let end = -1
 
-  result.forEach((station, index) => {
-    if (
-      station.stopType === "0" ||
-      station.stopType === "3"
-    ) {
-      return
+
+  result.forEach(
+    (station, index) => {
+
+      if (
+        station.stopType === "0" ||
+        station.stopType === "3"
+      ) {
+
+        return
+
+      }
+
+
+      if (start === -1) {
+
+        start =
+          index
+
+      }
+
+
+      end =
+        index
+
     }
+  )
 
-    if (start === -1) {
-      start = index
-    }
 
-    end = index
-  })
+  if (
+    start === -1 ||
+    end === -1
+  ) {
 
-  if (start === -1 || end === -1) {
     return []
+
   }
+
 
   const display = []
 
-  for (let i = start; i <= end; i++) {
-    const station = result[i]
-    if (!station) continue
+
+  for (
+    let i = start;
+    i <= end;
+    i++
+  ) {
+
+    const station =
+      result[i]
+
+
+    if (!station) {
+      continue
+    }
+
+
+    /*
+     * 実際には運転しない区間を除外
+     */
 
     if (
       station.stopType === "0" ||
       station.stopType === "3"
     ) {
+
       continue
+
     }
 
-    let arrival = station.arrival
-    let departure = station.departure
 
-    if (station.single !== "") {
+    let arrival =
+      station.arrival
+
+
+    let departure =
+      station.departure
+
+
+    /*
+     * single
+     *
+     * 途中 → 発
+     * 終着 → 着
+     */
+
+    if (
+      station.single !== ""
+    ) {
+
       if (i === end) {
-        arrival = station.single
+
+        arrival =
+          station.single
+
       } else {
-        departure = station.single
+
+        departure =
+          station.single
+
       }
+
     }
+
+
+    /*
+     * 始発
+     */
 
     if (i === start) {
+
       arrival = ""
+
     }
+
+
+    /*
+     * 終着
+     */
 
     if (i === end) {
+
       departure = ""
+
     }
 
+
     display.push({
+
       ...station,
+
       arrival,
+
       departure
+
     })
+
   }
+
 
   return display
 }
 
-function resolveOperationStation(train, operation) {
+// ========================================
+// 運用解析
+// ========================================
+
+function timeToSec(time) {
+
+  if (
+    time === undefined ||
+    time === null ||
+    String(time).trim() === ""
+  ) {
+    return -1
+  }
+
+  const value =
+    String(time)
+      .replace(/[^0-9]/g, "")
+
+  if (!value) {
+    return -1
+  }
+
+  let hour
+  let minute
+  let second = 0
+
+  if (value.length <= 4) {
+
+    hour =
+      parseInt(
+        value.slice(0, -2) || "0",
+        10
+      )
+
+    minute =
+      parseInt(
+        value.slice(-2),
+        10
+      )
+
+  } else {
+
+    hour =
+      parseInt(
+        value.slice(0, -4) || "0",
+        10
+      )
+
+    minute =
+      parseInt(
+        value.slice(-4, -2),
+        10
+      )
+
+    second =
+      parseInt(
+        value.slice(-2),
+        10
+      )
+
+  }
+
+  if (
+    Number.isNaN(hour) ||
+    Number.isNaN(minute)
+  ) {
+    return -1
+  }
+
+  return (
+    hour * 3600 +
+    minute * 60 +
+    second
+  )
+}
+
+
+function normalizeStation(
+  name
+) {
+
+  return String(
+    name || ""
+  )
+    .replace(/\s+/g, "")
+    .trim()
+
+}
+
+
+// ========================================
+// Operationを実際の駅へ対応させる
+// ========================================
+
+function resolveOperationStation(
+  train,
+  operation
+) {
+
   if (
     !train ||
-    !Array.isArray(train.stations) ||
+    !Array.isArray(
+      train.stations
+    ) ||
     !operation
   ) {
     return null
   }
 
-  const row = train.stations.find(
-    station =>
-      Number(station.rawIndex) ===
-      Number(operation.rawIndex)
-  )
 
-  if (row) return row
+  const row =
+    train.stations.find(
+      (station) =>
+        Number(
+          station.rawIndex
+        ) ===
+        Number(
+          operation.rawIndex
+        )
+    )
 
-  if (operation.side === "B") {
-    return train.stations[0] || null
+
+  if (row) {
+    return row
   }
+
+
+  /*
+   * 営業区間外のOperation
+   *
+   * B = 始発駅
+   * A = 終着駅
+   */
+
+  if (
+    operation.side === "B"
+  ) {
+
+    return (
+      train.stations[0] ||
+      null
+    )
+
+  }
+
 
   return (
     train.stations[
       train.stations.length - 1
-    ] || null
+    ] ||
+    null
   )
+
 }
 
-function buildOperationEvents(train) {
+
+// ========================================
+// Operationの入出庫イベント
+// ========================================
+
+function buildOperationEvents(
+  train
+) {
+
   if (
     !train ||
-    !Array.isArray(train.operationLines)
+    !Array.isArray(
+      train.operationLines
+    ) ||
+    train.operationLines.length === 0
   ) {
     return []
   }
 
+
   const events = []
 
-  for (const operation of train.operationLines) {
-    const station =
-      resolveOperationStation(
-        train,
-        operation
-      )
 
-    if (!station) continue
+  train.operationLines.forEach(
+    (operation) => {
 
-    const notes =
-      Array.isArray(operation.notes)
-        ? operation.notes
-        : []
+      const station =
+        resolveOperationStation(
+          train,
+          operation
+        )
 
-    const note = notes.find(
-      item => item && item.time
-    )
 
-    if (!note) continue
+      if (!station) {
+        return
+      }
 
-    const sec = timeToSeconds(note.time)
 
-    if (sec < 0) continue
+      const notes =
+        Array.isArray(
+          operation.notes
+        )
+          ? operation.notes
+          : []
 
-    events.push({
-      role:
+
+      /*
+       * 時刻のあるOperationだけを
+       * 入出庫・入換リンクに使用。
+       *
+       * 5/$0 はここでは使わない。
+       */
+
+      const note =
+        notes.find(
+          (item) =>
+            item &&
+            item.time
+        )
+
+
+      if (!note) {
+        return
+      }
+
+
+      const sec =
+        timeToSec(
+          note.time
+        )
+
+
+      if (sec < 0) {
+        return
+      }
+
+
+      /*
+       * B = 出庫側
+       * A = 入区側
+       */
+
+      const role =
         operation.side === "B"
           ? "out"
-          : "in",
-      side: operation.side,
-      station: station.name || "",
-      rawIndex: operation.rawIndex,
-      time: note.time,
-      sec,
-      trackKey: note.trackKey || "",
-      train
-    })
-  }
+          : "in"
+
+
+      events.push({
+
+        role,
+
+        side:
+          operation.side,
+
+        station:
+          station.name || "",
+
+        rawIndex:
+          operation.rawIndex,
+
+        time:
+          note.time,
+
+        sec,
+
+        trackKey:
+          note.trackKey || "",
+
+        train
+
+      })
+
+    }
+  )
+
 
   return events
+
 }
 
-function hasOperationSide(train, side) {
+
+// ========================================
+// Operation側が実際の入出庫を持つか
+// ========================================
+
+function hasOperationSide(
+  train,
+  side
+) {
+
   if (
     !train ||
-    !Array.isArray(train.operationLines)
+    !Array.isArray(
+      train.operationLines
+    )
   ) {
     return false
   }
 
+
+  /*
+   * 5/$0 のような
+   * 「時刻なし」は除外
+   */
+
   return train.operationLines.some(
-    operation => {
+    (operation) => {
+
       if (
         !operation ||
         operation.side !== side
@@ -507,1290 +1305,992 @@ function hasOperationSide(train, side) {
         return false
       }
 
+
       const notes =
-        Array.isArray(operation.notes)
+        Array.isArray(
+          operation.notes
+        )
           ? operation.notes
           : []
 
+
       return notes.some(
-        note =>
+        (note) =>
           note &&
           note.time
       )
+
     }
   )
+
 }
 
-function clearTrainLinks(trains) {
-  for (const train of trains) {
-    train.nextTrain = null
-    train.previousTrain = null
+
+// ========================================
+// Operationによる運用接続
+// ========================================
+
+function linkTrainsByOperation(
+  sortedTrains
+) {
+  const inEvents = []
+  const outEvents = []
+  sortedTrains.forEach((train) => {
+    train.operationTurnback = null
+    buildOperationEvents(train).forEach((event) => {
+      if (event.role === "in") inEvents.push(event)
+      if (event.role === "out") outEvents.push(event)
+    })
+  })
+  inEvents.sort((a, b) => a.sec - b.sec)
+  outEvents.sort((a, b) => a.sec - b.sec)
+  inEvents.forEach((inEvent) => {
+    const current = inEvent.train
+    if (!current || current.nextTrainNo) return
+    let best = null
+    let bestDiff = Infinity
+    outEvents.forEach((outEvent) => {
+      const candidate = outEvent.train
+      if (!candidate || candidate === current) return
+      if (candidate.previousTrainNo) return
+      if (normalizeStation(inEvent.station) !== normalizeStation(outEvent.station)) return
+      if (outEvent.sec < inEvent.sec) return
+      if (inEvent.trackKey && outEvent.trackKey && String(inEvent.trackKey) !== String(outEvent.trackKey)) return
+      const diff = outEvent.sec - inEvent.sec
+      if (diff < bestDiff) { bestDiff = diff; best = outEvent }
+    })
+    if (!best) return
+    const next = best.train
+    current.nextTrainNo = next.trainNo || ""
+    next.previousTrainNo = current.trainNo || ""
+    current.operationTurnback = {
+      station: inEvent.station,
+      inTime: inEvent.time,
+      outTime: best.time,
+      trackKey: inEvent.trackKey || best.trackKey || ""
+    }
+  })
+}
+
+
+function linkPhysicalTrains(
+  sortedTrains
+) {
+  const linkedAsNext = new Set()
+  sortedTrains.forEach((train) => {
+    if (train.nextTrainNo) linkedAsNext.add(String(train.nextTrainNo))
+  })
+  sortedTrains.forEach((train) => {
+    if (train.nextTrainNo) return
+    if (hasOperationSide(train, "A")) return
+    if (!Array.isArray(train.stations) || train.stations.length === 0) return
+    const last = train.stations[train.stations.length - 1]
+    const endTime = timeToSec(last.arrival || last.departure || last.single)
+    if (endTime < 0) return
+    let best = null; let bestDiff = Infinity
+    sortedTrains.forEach((candidate) => {
+      if (candidate === train) return
+      if (candidate.trainNo && linkedAsNext.has(String(candidate.trainNo))) return
+      if (hasOperationSide(candidate, "B")) return
+      if (candidate.previousTrainNo) return
+      if (!Array.isArray(candidate.stations) || candidate.stations.length === 0) return
+      const first = candidate.stations[0]
+      const startTime = timeToSec(first.departure || first.arrival || first.single)
+      if (startTime < 0) return
+      if (normalizeStation(last.name) !== normalizeStation(first.name)) return
+      if (last.track && first.track && String(last.track) !== String(first.track)) return
+      if (startTime < endTime) return
+      const diff = startTime - endTime
+      if (diff < bestDiff) { bestDiff = diff; best = candidate }
+    })
+    if (best) {
+      train.nextTrainNo = best.trainNo || ""
+      best.previousTrainNo = train.trainNo || ""
+      linkedAsNext.add(String(best.trainNo || ""))
+    }
+  })
+}
+
+
+function assignOperations(
+  trains
+) {
+  const trainMap = new Map()
+  trains.forEach((train) => { if (train.trainNo) trainMap.set(String(train.trainNo), train) })
+  const groups = []; const visited = new Set()
+  trains.forEach((train) => {
+    if (visited.has(train) || train.previousTrainNo) return
+    const group = []; let current = train
+    while (current && !visited.has(current)) {
+      group.push(current); visited.add(current)
+      current = current.nextTrainNo ? trainMap.get(String(current.nextTrainNo)) : null
+    }
+    if (group.length) groups.push(group)
+  })
+  trains.forEach((train) => { if (!visited.has(train)) { groups.push([train]); visited.add(train) } })
+  groups.forEach((group) => {
+    let knownUnyo = ""
+    for (const train of group) {
+      if (train.unyo && String(train.unyo).trim() !== "") { knownUnyo = String(train.unyo).trim(); break }
+    }
+    if (!knownUnyo) return
+    group.forEach((train,index) => {
+      if (!train.unyo || String(train.unyo).trim() === "") train.unyo = knownUnyo
+      train.operationSequence = index + 1
+      train.operationLength = group.length
+    })
+  })
+  return groups
+}
+
+
+function analyzeOperations(
+  trains
+) {
+  trains.forEach((train) => {
     train.nextTrainNo = ""
     train.previousTrainNo = ""
     train.operationSequence = null
     train.operationLength = null
     train.operationTurnback = null
-  }
-}
-
-function linkTrainsByOperation(trains) {
-  const inEvents = []
-  const outEvents = []
-
-  for (const train of trains) {
-    for (
-      const event of
-      buildOperationEvents(train)
-    ) {
-      if (event.role === "in") {
-        inEvents.push(event)
-      } else {
-        outEvents.push(event)
-      }
-    }
-  }
-
-  inEvents.sort(
-    (a, b) => a.sec - b.sec
-  )
-
-  outEvents.sort(
-    (a, b) => a.sec - b.sec
-  )
-
-  for (const inEvent of inEvents) {
-    const current = inEvent.train
-
-    if (
-      !current ||
-      current.nextTrain
-    ) {
-      continue
-    }
-
-    let best = null
-    let bestDiff = Infinity
-
-    for (const outEvent of outEvents) {
-      const candidate = outEvent.train
-
-      if (
-        !candidate ||
-        candidate === current ||
-        candidate.previousTrain
-      ) {
-        continue
-      }
-
-      if (
-        normalizeStationName(
-          inEvent.station
-        ) !==
-        normalizeStationName(
-          outEvent.station
-        )
-      ) {
-        continue
-      }
-
-      if (
-        outEvent.sec <
-        inEvent.sec
-      ) {
-        continue
-      }
-
-      if (
-        inEvent.trackKey &&
-        outEvent.trackKey &&
-        String(inEvent.trackKey) !==
-        String(outEvent.trackKey)
-      ) {
-        continue
-      }
-
-      const diff =
-        outEvent.sec -
-        inEvent.sec
-
-      if (diff < bestDiff) {
-        bestDiff = diff
-        best = outEvent
-      }
-    }
-
-    if (!best) continue
-
-    const next = best.train
-
-    current.nextTrain = next
-    next.previousTrain = current
-
-    current.nextTrainNo =
-      next.trainNo || ""
-
-    next.previousTrainNo =
-      current.trainNo || ""
-
-    current.operationTurnback = {
-      station: inEvent.station,
-      inTime: inEvent.time,
-      outTime: best.time,
-      trackKey:
-        inEvent.trackKey ||
-        best.trackKey ||
-        ""
-    }
-  }
-}
-
-function linkPhysicalTrains(trains) {
-  const usedNext = new Set()
-
-  for (const train of trains) {
-    if (train.nextTrain) {
-      usedNext.add(train.nextTrain)
-    }
-  }
-
-  for (const train of trains) {
-    if (train.nextTrain) continue
-
-    if (
-      hasOperationSide(
-        train,
-        "A"
-      )
-    ) {
-      continue
-    }
-
-    const last =
-      getLastStation(train)
-
-    if (!last) continue
-
-    const endTime =
-      timeToSeconds(
-        last.arrival ||
-        last.departure ||
-        last.single
-      )
-
-    if (endTime < 0) continue
-
-    let best = null
-    let bestDiff = Infinity
-
-    for (const candidate of trains) {
-      if (
-        candidate === train ||
-        usedNext.has(candidate) ||
-        candidate.previousTrain
-      ) {
-        continue
-      }
-
-      if (
-        hasOperationSide(
-          candidate,
-          "B"
-        )
-      ) {
-        continue
-      }
-
-      const first =
-        getFirstStation(candidate)
-
-      if (!first) continue
-
-      if (
-        normalizeStationName(
-          last.name
-        ) !==
-        normalizeStationName(
-          first.name
-        )
-      ) {
-        continue
-      }
-
-      const startTime =
-        timeToSeconds(
-          first.departure ||
-          first.arrival ||
-          first.single
-        )
-
-      if (startTime < 0) continue
-
-      if (startTime < endTime) {
-        continue
-      }
-
-      if (
-        last.track &&
-        first.track &&
-        String(last.track) !==
-        String(first.track)
-      ) {
-        continue
-      }
-
-      const diff =
-        startTime - endTime
-
-      if (diff < bestDiff) {
-        bestDiff = diff
-        best = candidate
-      }
-    }
-
-    if (!best) continue
-
-    train.nextTrain = best
-    best.previousTrain = train
-
-    train.nextTrainNo =
-      best.trainNo || ""
-
-    best.previousTrainNo =
-      train.trainNo || ""
-
-    usedNext.add(best)
-
-    if (!train.operationTurnback) {
-      train.operationTurnback = {
-        station: last.name || "",
-        inTime:
-          last.arrival ||
-          last.departure ||
-          last.single ||
-          "",
-        outTime:
-          getFirstStation(best)?.departure ||
-          getFirstStation(best)?.arrival ||
-          getFirstStation(best)?.single ||
-          "",
-        trackKey:
-          last.track ||
-          getFirstStation(best)?.track ||
-          ""
-      }
-    }
-  }
-}
-
-function buildOperationGroups(trains) {
-  const groups = []
-  const visited = new Set()
-
-  for (const train of trains) {
-    if (visited.has(train)) continue
-    if (train.previousTrain) continue
-
-    const group = []
-    let current = train
-
-    while (
-      current &&
-      !visited.has(current)
-    ) {
-      group.push(current)
-      visited.add(current)
-      current = current.nextTrain
-    }
-
-    if (group.length) {
-      groups.push(group)
-    }
-  }
-
-  for (const train of trains) {
-    if (visited.has(train)) continue
-
-    groups.push([train])
-    visited.add(train)
-  }
-
+  })
+  const sortedTrains = [...trains].sort((a,b) => {
+    const aFirst = a.stations?.[0]; const bFirst = b.stations?.[0]
+    return timeToSec(aFirst?.departure || aFirst?.arrival || aFirst?.single) - timeToSec(bFirst?.departure || bFirst?.arrival || bFirst?.single)
+  })
+  linkTrainsByOperation(sortedTrains)
+  linkPhysicalTrains(sortedTrains)
+  const groups = assignOperations(sortedTrains)
+  console.log("===== 運用解析結果 =====")
+  groups.forEach((group) => console.log(group.map((train) => ({ trainNo: train.trainNo, unyo: train.unyo || "", sequence: train.operationSequence, next: train.nextTrainNo || "", previous: train.previousTrainNo || "", turnback: train.operationTurnback || null }))))
+  console.log("=======================")
   return groups
 }
 
-function assignOperations(trains) {
-  const groups =
-    buildOperationGroups(trains)
 
-  for (const group of groups) {
-    let knownUnyo = ""
+function timeToSeconds(time) {
 
-    for (const train of group) {
-      const value =
-        String(train.unyo || "").trim()
-
-      if (value) {
-        knownUnyo = value
-        break
-      }
-    }
-
-    for (
-      let index = 0;
-      index < group.length;
-      index++
-    ) {
-      const train = group[index]
-
-      if (
-        !train.unyo &&
-        knownUnyo
-      ) {
-        train.unyo = knownUnyo
-      }
-
-      train.operationSequence =
-        index + 1
-
-      train.operationLength =
-        group.length
-    }
+  if (!time) {
+    return -1
   }
 
-  return groups
+  const value =
+    String(time)
+      .replace(/[^0-9]/g, "")
+
+  if (!value) {
+    return -1
+  }
+
+  let hour = 0
+  let minute = 0
+  let second = 0
+
+  if (value.length <= 4) {
+
+    hour =
+      Number(
+        value.slice(0, -2)
+      )
+
+    minute =
+      Number(
+        value.slice(-2)
+      )
+
+  } else {
+
+    hour =
+      Number(
+        value.slice(0, -4)
+      )
+
+    minute =
+      Number(
+        value.slice(-4, -2)
+      )
+
+    second =
+      Number(
+        value.slice(-2)
+      )
+
+  }
+
+  return (
+    hour * 3600 +
+    minute * 60 +
+    second
+  )
 }
 
-function addAutoRemarksToTrains(trains = []) {
 
-  if (!Array.isArray(trains)) {
-    return
-  }
+function normalizeStationName(
+  name
+) {
 
-  const normalize = (value) =>
-    String(value ?? "").trim()
+  return String(
+    name || ""
+  )
+    .replace(/\s+/g, "")
+    .trim()
 
-
-  const getSyubetsuColor = (name) => {
-
-    const text =
-      String(name || "")
-
-    if (text.includes("特急")) {
-      return "#cc0000"
-    }
-
-    if (text.includes("快急")) {
-      return "#ff00ff"
-    }
-
-    if (text.includes("快速")) {
-      return "#0000ff"
-    }
-
-    if (text.includes("急行")) {
-      return "#ff8800"
-    }
-
-    if (
-      text.includes("準急") ||
-      text.includes("通急")
-    ) {
-      return "#008800"
-    }
-
-    if (text.includes("普通")) {
-      return "#000000"
-    }
-
-    if (text.includes("回送")) {
-      return "#888888"
-    }
-
-    return "#333333"
-  }
+}
 
 
-  const addRemark = (
-    station,
-    train,
-    kind
-  ) => {
+function getFirstStation(train) {
 
-    if (
-      !station ||
-      !train ||
-      !kind
-    ) {
-      return
-    }
-
-
-    if (
-      !Array.isArray(
-        station.autoRemarks
-      )
-    ) {
-      station.autoRemarks = []
-    }
-
-
-    const trainNo =
-      normalize(
-        train.trainNo
-      )
-
-
-    const trainType =
-      normalize(
-        train.typeShort ||
-        train.type
-      )
-
-
-    if (
-      !trainNo &&
-      !trainType
-    ) {
-      return
-    }
-
-
-    const text =
-      trainType
-        ? `${trainNo} ${trainType}${kind}`
-        : `${trainNo}${kind}`
-
-
-    const remark = {
-
-      text,
-
-      trainNo,
-
-      trainType,
-
-      trainTypeColor:
-        getSyubetsuColor(
-          trainType
-        ),
-
-      kind
-
-    }
-
-
-    const exists =
-      station.autoRemarks.some(
-        item =>
-          item &&
-          item.text ===
-            remark.text
-      )
-
-
-    if (!exists) {
-
-      station.autoRemarks.push(
-        remark
-      )
-
-    }
-
-  }
-
-
-  // ========================================
-  // 初期化
-  // ========================================
-
-  for (
-    const train
-    of trains
+  if (
+    !Array.isArray(
+      train.stations
+    )
   ) {
-
-    if (
-      !Array.isArray(
-        train?.stations
-      )
-    ) {
-      continue
-    }
-
-
-    for (
-      const station
-      of train.stations
-    ) {
-
-      if (!station) {
-        continue
-      }
-
-
-      station.autoRemarks = []
-
-    }
-
+    return null
   }
 
+  return (
+    train.stations[0] ||
+    null
+  )
 
-  // ========================================
-  // 待避・連絡
-  // ========================================
+}
 
-  for (
-    const trainA
-    of trains
+
+function getLastStation(train) {
+
+  if (
+    !Array.isArray(
+      train.stations
+    )
   ) {
-
-    if (
-      !Array.isArray(
-        trainA?.stations
-      )
-    ) {
-      continue
-    }
-
-
-    for (
-      const trainB
-      of trains
-    ) {
-
-      if (
-        trainA === trainB
-      ) {
-        continue
-      }
-
-
-      // 同方向のみ
-      if (
-        trainA.direction !==
-        trainB.direction
-      ) {
-        continue
-      }
-
-
-      for (
-        const stationA
-        of trainA.stations
-      ) {
-
-        if (!stationA) {
-          continue
-        }
-
-
-        const stationName =
-          normalize(
-            stationA.name
-          )
-
-
-        if (!stationName) {
-          continue
-        }
-
-
-        const stationB =
-          trainB.stations.find(
-            station =>
-              normalize(
-                station?.name
-              ) ===
-              stationName
-          )
-
-
-        if (!stationB) {
-          continue
-        }
-
-
-        let secAArrival =
-          timeToSeconds(
-            stationA.arrival ||
-            stationA.arr
-          )
-
-
-        let secADeparture =
-          timeToSeconds(
-            stationA.departure ||
-            stationA.dep
-          )
-
-
-        if (
-          secAArrival === -1 &&
-          secADeparture === -1
-        ) {
-          continue
-        }
-
-
-        if (
-          secAArrival === -1
-        ) {
-          secAArrival =
-            secADeparture
-        }
-
-
-        if (
-          secADeparture === -1
-        ) {
-          secADeparture =
-            secAArrival
-        }
-
-
-        let secBArrival =
-          timeToSeconds(
-            stationB.arrival ||
-            stationB.arr
-          )
-
-
-        let secBDeparture =
-          timeToSeconds(
-            stationB.departure ||
-            stationB.dep
-          )
-
-
-        if (
-          secBArrival === -1 &&
-          secBDeparture === -1
-        ) {
-          continue
-        }
-
-
-        if (
-          secBArrival === -1
-        ) {
-          secBArrival =
-            secBDeparture
-        }
-
-
-        if (
-          secBDeparture === -1
-        ) {
-          secBDeparture =
-            secBArrival
-        }
-
-
-        // ==============================
-        // 待避
-        // ==============================
-
-        if (
-          secAArrival <=
-            secBArrival &&
-          secBDeparture <
-            secADeparture
-        ) {
-
-          addRemark(
-            stationA,
-            trainB,
-            "待避"
-          )
-
-        }
-
-
-        // ==============================
-        // 連絡
-        // ==============================
-
-        const isPassA =
-          stationA.isPass === true ||
-          stationA.pass === true
-
-
-        if (
-          !isPassA &&
-          secBArrival <=
-            secAArrival &&
-          secAArrival <=
-            secBDeparture
-        ) {
-
-          addRemark(
-            stationA,
-            trainB,
-            "連絡"
-          )
-
-        }
-
-      }
-
-    }
-
+    return null
   }
 
-
-  // ========================================
-  // 既存備考・Operation備考を統合
-  // ========================================
-
-  for (
-    const train
-    of trains
-  ) {
-
-    if (
-      !Array.isArray(
-        train?.stations
-      )
-    ) {
-      continue
-    }
-
-
-    for (
-      const station
-      of train.stations
-    ) {
-
-      if (!station) {
-        continue
-      }
-
-
-      const autoRemarks =
-        Array.isArray(
-          station.autoRemarks
-        )
-          ? station.autoRemarks
-          : []
-
-
-      const operationRemarks =
-        Array.isArray(
-          station.operationRemarks
-        )
-          ? station.operationRemarks
-          : []
-
-
-      const operationTexts =
-        operationRemarks
-          .map(
-            remark => {
-
-              if (!remark) {
-                return ""
-              }
-
-
-              if (
-                typeof remark ===
-                "string"
-              ) {
-                return remark
-              }
-
-
-              const parts = []
-
-
-              if (
-                remark.label
-              ) {
-                parts.push(
-                  remark.label
-                )
-              }
-
-
-              if (
-                remark.time
-              ) {
-                parts.push(
-                  remark.time
-                )
-              }
-
-
-              if (
-                remark.trackName
-              ) {
-                parts.push(
-                  remark.trackName
-                )
-              }
-
-
-              return parts.join(" ")
-
-            }
-          )
-          .filter(Boolean)
-
-
-      const existing =
-        normalize(
-          station.remarks
-        )
-
-
-      station.automaticRemarks =
-        autoRemarks
-
-
-      station.remarks =
-        [
-          ...(existing
-            ? [existing]
-            : []),
-
-          ...autoRemarks.map(
-            remark =>
-              remark.text
-          ),
-
-          ...operationTexts
-
-        ]
-          .filter(Boolean)
-          .filter(
-            (
-              value,
-              index,
-              array
-            ) =>
-              array.indexOf(
-                value
-              ) === index
-          )
-          .join("\n")
-
-
-      delete station.autoRemarks
-
-    }
-
-  }
+  return (
+    train.stations[
+      train.stations.length - 1
+    ] ||
+    null
+  )
 
 }
 
-function cleanTrainForFirebase(train) {
-  if (!train) return
 
-  delete train.rawTimes
-  /* Operation情報はスタフ表示で使用するため保持 */
-  delete train.operations
-
-  delete train.nextTrain
-  delete train.previousTrain
-}
-
-function colorValueToCss(value) {
-  const text =
-    String(value || "")
-      .trim()
-      .replace(/^0x/i, "")
-
-  if (!/^[0-9a-fA-F]{8}$/.test(text)) {
-    return ""
-  }
-
-  return `#${text.slice(2)}`.toLowerCase()
-}
-
+// ========================================
+// 運用リンク
 function parseOud2(
   text,
   fileName = ""
 ) {
+
   const lines =
-    String(text ?? "")
+    String(text)
       .replace(/\r/g, "")
       .split("\n")
 
+
   const result = {
+
     fileName,
+
     fileType: "",
+
     railwayName: "",
+
     downAlias: "",
+
     upAlias: "",
+
     stations: [],
+
     trainTypes: [],
+
     diagrams: [],
+
     trains: {
+
       Kudari: [],
+
       Nobori: []
+
     }
+
   }
 
-  let section = ""
-  let currentStation = null
-  let currentTrainType = null
-  let currentDiagram = null
-  let currentTrain = null
 
-  for (const rawLine of lines) {
+  let section = ""
+
+  // EkiTrack2 は駅内の入れ子。各 TrackRyakusyou の末尾の "." では駅を終了しない。
+  let inEkiTrack2 = false
+
+  let currentStation =
+    null
+
+  let currentTrainType =
+    null
+
+  let currentDiagram =
+    null
+
+  let currentTrain =
+    null
+
+
+  for (
+    const rawLine of lines
+  ) {
+
     const line =
       rawLine.trim()
 
-    if (!line) continue
+
+    if (!line) {
+      continue
+    }
+
+
+    /*
+     * セクション終了
+     */
 
     if (line === ".") {
+
+      if (inEkiTrack2) {
+        inEkiTrack2 = false
+        continue
+      }
+
       currentStation = null
       currentTrainType = null
       currentDiagram = null
       currentTrain = null
 
-      // sectionは保持する。
+      continue
+    }
+
+
+    /*
+     * 駅
+     */
+
+    if (line === "EkiTrack2." && currentStation) {
+      inEkiTrack2 = true
       continue
     }
 
     if (line === "Eki.") {
-      section = "Eki"
+      inEkiTrack2 = false
+
+      section =
+        "Eki"
+
 
       currentStation = {
+
         name: "",
+
         timeName: "",
+
         diagramName: "",
+
         timeFormat: "",
+
         scale: "",
+
         downMain: "",
+
         upMain: "",
+
         tracks: []
+
       }
+
 
       result.stations.push(
         currentStation
       )
 
+
       continue
     }
+
+
+    /*
+     * 列車種別
+     */
 
     if (
       line ===
       "Ressyasyubetsu."
     ) {
+
       section =
         "Ressyasyubetsu"
 
+
       currentTrainType = {
+
         name: "",
+
         abbreviation: "",
-        color: "#000000",
-        backgroundColor: "#ffffff",
-        fontIndex: "",
+
+        trainTypeColor: "",
+
         index:
           result.trainTypes.length
+
       }
+
 
       result.trainTypes.push(
         currentTrainType
       )
 
+
       continue
     }
 
+
+    /*
+     * ダイヤ
+     */
+
     if (line === "Dia.") {
-      section = "Dia"
+
+      section =
+        "Dia"
+
 
       currentDiagram = {
+
         name: "",
+
         Kudari: [],
+
         Nobori: []
+
       }
+
 
       result.diagrams.push(
         currentDiagram
       )
 
+
       continue
     }
+
+
+    /*
+     * 下り
+     */
 
     if (line === "Kudari.") {
-      section = "Kudari"
+
+      section =
+        "Kudari"
+
       continue
     }
+
+
+    /*
+     * 上り
+     */
 
     if (line === "Nobori.") {
-      section = "Nobori"
+
+      section =
+        "Nobori"
+
       continue
     }
 
+
+    /*
+     * 列車
+     */
+
     if (line === "Ressya.") {
+
       currentTrain = {
+
         direction:
-          section === "Kudari" ||
-          section === "Nobori"
-            ? section
-            : "",
-        typeIndex: null,
-        trainNo: "",
-        unyo: "",
-        timeRaw: "",
-        rawTimes: [],
-        stations: [],
-        operations: {},
-        operationLines: [],
-        operationRemarks: [],
-        nextTrainNo: "",
-        previousTrainNo: "",
-        operationSequence: null,
-        operationLength: null,
-        operationTurnback: null
+          section,
+
+        typeIndex:
+          null,
+
+        trainNo:
+          "",
+
+        unyo:
+          "",
+
+        timeRaw:
+          "",
+
+        stations:
+          [],
+
+        operations:
+          {},
+
+        operationLines:
+          [],
+
+        operationRemarks:
+          []
+
       }
+
 
       if (
         section === "Kudari"
       ) {
+
         result.trains.Kudari.push(
           currentTrain
         )
-      } else if (
+
+      }
+
+
+      if (
         section === "Nobori"
       ) {
+
         result.trains.Nobori.push(
           currentTrain
         )
+
       }
+
 
       continue
     }
+
+
+    /*
+     * key=value
+     */
 
     const equalIndex =
       line.indexOf("=")
 
-    if (equalIndex === -1) {
+
+    if (
+      equalIndex === -1
+    ) {
+
       continue
+
     }
+
 
     const key =
       line.slice(
         0,
         equalIndex
-      ).trim()
+      )
+
 
     const value =
       line.slice(
         equalIndex + 1
-      ).trim()
+      )
 
-    if (key === "FileType") {
-      result.fileType = value
-      continue
-    }
 
-    if (key === "Rosenmei") {
-      result.railwayName = value
-      continue
-    }
+    /*
+     * ファイル情報
+     */
 
     if (
-      key ===
-      "KudariDiaAlias"
+      key === "FileType"
     ) {
-      result.downAlias = value
+
+      result.fileType =
+        value
+
       continue
     }
 
+
+    /*
+     * 路線名
+     */
+
     if (
-      key ===
-      "NoboriDiaAlias"
+      key === "Rosenmei"
     ) {
-      result.upAlias = value
+
+      result.railwayName =
+        value
+
       continue
     }
+
+
+    /*
+     * ダイヤ別名
+     */
+
+    if (
+      key === "KudariDiaAlias"
+    ) {
+
+      result.downAlias =
+        value
+
+      continue
+    }
+
+
+    if (
+      key === "NoboriDiaAlias"
+    ) {
+
+      result.upAlias =
+        value
+
+      continue
+    }
+
+
+    /*
+     * 駅
+     */
 
     if (
       section === "Eki" &&
       currentStation
     ) {
-      switch (key) {
-        case "Ekimei":
-          currentStation.name = value
-          break
 
-        case "EkimeiJikokuRyaku":
-          currentStation.timeName =
-            value
-          break
+      if (
+        key === "Ekimei"
+      ) {
 
-        case "EkimeiDiaRyaku":
-          currentStation.diagramName =
-            value
-          break
+        currentStation.name =
+          value
 
-        case "Ekijikokukeisiki":
-          currentStation.timeFormat =
-            value
-          break
-
-        case "Ekikibo":
-          currentStation.scale = value
-          break
-
-        case "DownMain":
-          currentStation.downMain =
-            value
-          break
-
-        case "UpMain":
-          currentStation.upMain =
-            value
-          break
-
-        case "TrackRyakusyou":
-          currentStation.tracks.push(
-            value
-          )
-          break
       }
+
+      else if (
+        key ===
+        "EkimeiJikokuRyaku"
+      ) {
+
+        currentStation.timeName =
+          value
+
+      }
+
+      else if (
+        key ===
+        "EkimeiDiaRyaku"
+      ) {
+
+        currentStation.diagramName =
+          value
+
+      }
+
+      else if (
+        key ===
+        "Ekijikokukeisiki"
+      ) {
+
+        currentStation.timeFormat =
+          value
+
+      }
+
+      else if (
+        key === "Ekikibo"
+      ) {
+
+        currentStation.scale =
+          value
+
+      }
+
+      else if (
+        key === "DownMain"
+      ) {
+
+        currentStation.downMain =
+          value
+
+      }
+
+      else if (
+        key === "UpMain"
+      ) {
+
+        currentStation.upMain =
+          value
+
+      }
+
+      else if (
+        key ===
+        "TrackRyakusyou"
+      ) {
+
+        currentStation.tracks.push(
+          value
+        )
+
+      }
+
 
       continue
     }
+
+
+    /*
+     * 列車種別
+     */
 
     if (
       section ===
         "Ressyasyubetsu" &&
       currentTrainType
     ) {
+
       if (
-        key ===
-        "Syubetsumei"
+        key === "Syubetsumei"
       ) {
+
         currentTrainType.name =
           value
-      } else if (
-        key ===
-        "Ryakusyou"
+
+      }
+
+      else if (
+        key === "Ryakusyou"
       ) {
+
         currentTrainType.abbreviation =
           value
-      } else if (
-        key ===
-        "JikokuhyouMojiColor"
-      ) {
-        currentTrainType.color =
-          colorValueToCss(value)
-      } else if (
-        key ===
-        "JikokuhyouBackColor"
-      ) {
-        currentTrainType.backgroundColor =
-          colorValueToCss(value)
-      } else if (
-        key ===
-        "JikokuhyouFontIndex"
-      ) {
-        currentTrainType.fontIndex =
-          value
+
       }
+
+      else if (
+        key === "JikokuhyouMojiColor"
+      ) {
+
+        /*
+         * OUD2 stores this as AARRGGBB.
+         * The files used by ACTIS use 00 as alpha,
+         * so keep the RGB portion for CSS display.
+         */
+        const color =
+          String(
+            value || ""
+          ).trim()
+
+        if (
+          /^[0-9A-Fa-f]{8}$/.test(color)
+        ) {
+
+          currentTrainType.trainTypeColor =
+            "#" +
+            color.slice(2)
+
+        }
+
+        else if (
+          /^[0-9A-Fa-f]{6}$/.test(color)
+        ) {
+
+          currentTrainType.trainTypeColor =
+            "#" +
+            color
+
+        }
+
+      }
+
 
       continue
     }
+
+
+    /*
+     * ダイヤ
+     */
 
     if (
       section === "Dia" &&
       currentDiagram
     ) {
+
       if (
         key === "DiaName"
       ) {
+
         currentDiagram.name =
           value
+
       }
 
-      continue
-    }
-
-    if (!currentTrain) {
-      continue
-    }
-
-    if (
-      /^Operation\d+[AB]$/.test(
-        key
-      )
-    ) {
-      parseOperationLine(
-        currentTrain,
-        line
-      )
 
       continue
     }
 
-    if (
-      key === "Unyo" ||
-      key === "UnYo"
-    ) {
-      if (!currentTrain.unyo) {
-        currentTrain.unyo =
-          value.trim()
+
+    /*
+     * 列車
+     */
+
+    if (currentTrain) {
+
+      /*
+       * Operation
+       */
+
+      if (
+        key.startsWith(
+          "Operation"
+        )
+      ) {
+
+        parseOperationLine(
+          currentTrain,
+          line
+        )
+
+        continue
       }
 
-      continue
-    }
 
-    if (key === "Houkou") {
-      currentTrain.direction =
-        value
+      /*
+       * 運用番号
+       */
 
-      continue
-    }
+      if (
+        key === "Unyo" ||
+        key === "UnYo"
+      ) {
 
-    if (key === "Syubetsu") {
-      const typeIndex =
-        Number(value)
+        if (!currentTrain.unyo) {
 
-      currentTrain.typeIndex =
-        Number.isNaN(typeIndex)
-          ? null
-          : typeIndex
+          currentTrain.unyo =
+            value.trim()
 
-      continue
-    }
+        }
 
-    if (
-      key ===
-      "Ressyabangou"
-    ) {
-      currentTrain.trainNo =
-        value
+        continue
+      }
 
-      continue
-    }
 
-    if (
-      key === "EkiJikoku"
-    ) {
-      const ekiJikoku =
-        parseEkiJikoku(
+      /*
+       * 方向
+       */
+
+      if (
+        key === "Houkou"
+      ) {
+
+        currentTrain.direction =
           value
+
+        continue
+      }
+
+
+      /*
+       * 種別
+       */
+
+      if (
+        key === "Syubetsu"
+      ) {
+
+        currentTrain.typeIndex =
+          Number(value)
+
+        continue
+      }
+
+
+      /*
+       * 列車番号
+       */
+
+      if (
+        key === "Ressyabangou"
+      ) {
+
+        currentTrain.trainNo =
+          value
+
+        continue
+      }
+
+
+      /*
+       * 駅時刻
+       */
+
+      if (
+        key === "EkiJikoku"
+      ) {
+
+        currentTrain.timeRaw =
+          value
+
+
+        const ekiJikoku =
+          parseEkiJikoku(
+            value
+          )
+
+
+        currentTrain.rawTimes =
+          ekiJikoku
+
+
+        currentTrain.stations =
+          createStationTimes(
+            result.stations,
+            ekiJikoku,
+            section,
+            currentTrain.operationRemarks
+          )
+
+
+        continue
+      }
+
+
+      /*
+       * その他Operation
+       */
+
+      if (
+        key.startsWith(
+          "Operation"
         )
+      ) {
 
-      currentTrain.timeRaw =
-        value
+        currentTrain.operations[key] =
+          value
 
-      currentTrain.rawTimes =
-        ekiJikoku
+        continue
+      }
 
-      currentTrain.stations =
-        createStationTimes(
-          result.stations,
-          ekiJikoku,
-          currentTrain.direction,
-          currentTrain.operationRemarks
-        )
-
-      continue
     }
+
   }
+
+
+  /*
+   * ====================================
+   * 列車種別を付与
+   * ====================================
+   */
 
   for (
     const direction of [
@@ -1798,114 +2298,65 @@ function parseOud2(
       "Nobori"
     ]
   ) {
+
     for (
       const train of
-      result.trains[direction]
+        result.trains[direction]
     ) {
+
       const type =
         result.trainTypes[
           train.typeIndex
         ] || null
 
+
       train.type =
         type?.name || ""
+
 
       train.typeShort =
         type?.abbreviation || ""
 
       train.trainTypeColor =
-        type?.color || "#000000"
+        type?.JikokuhyouBackColor ||
+        type?.jikokuhyouBackColor ||
+        type?.trainTypeColor ||
+        ""
 
-      train.trainTypeBackgroundColor =
-        type?.backgroundColor || "#ffffff"
 
-      const first =
-        getFirstStation(train)
+      /*
+       * 行先
+       */
 
-      const last =
-        getLastStation(train)
+      if (
+        train.stations &&
+        train.stations.length > 0
+      ) {
 
-      train.origin =
-        first?.name || ""
+        train.destination =
+          train.stations[
+            train.stations.length - 1
+          ].name
 
-      train.destination =
-        last?.name || ""
+      }
+
     }
+
   }
 
-  const allTrains = [
+
+  // ========================================
+// 運用解析
+// ========================================
+const allTrains = [
     ...result.trains.Kudari,
     ...result.trains.Nobori
   ]
 
-  clearTrainLinks(
-    allTrains
-  )
-
-  const sortedTrains =
-    [...allTrains].sort(
-      (a, b) => {
-        const aFirst =
-          getFirstStation(a)
-
-        const bFirst =
-          getFirstStation(b)
-
-        const aTime =
-          timeToSeconds(
-            aFirst?.departure ||
-            aFirst?.arrival ||
-            aFirst?.single
-          )
-
-        const bTime =
-          timeToSeconds(
-            bFirst?.departure ||
-            bFirst?.arrival ||
-            bFirst?.single
-          )
-
-        return aTime - bTime
-      }
-    )
-
-  linkTrainsByOperation(
-    sortedTrains
-  )
-
-  linkPhysicalTrains(
-    sortedTrains
-  )
-
-  assignOperations(
-    sortedTrains
-  )
-
-  addAutoRemarksToTrains(
-    allTrains
-  )
-
-  for (
-    const train of allTrains
-  ) {
-    cleanTrainForFirebase(
-      train
-    )
-  }
-
-  result.trainCount =
-    allTrains.length
-
-  result.stationCount =
-    result.stations.length
-
-  result.trainTypeCount =
-    result.trainTypes.length
-
-  result.diagramCount =
-    result.diagrams.length
+  analyzeOperations(allTrains)
 
   return result
 }
+
 
 export default parseOud2
