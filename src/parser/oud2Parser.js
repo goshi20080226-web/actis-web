@@ -2077,13 +2077,12 @@ function parseOud2(
       }
 
       else if (
-        key === "JikokuhyouMojiColor"
+        key === "JikokuhyouBackColor"
       ) {
 
         /*
-         * OUD2 stores this as AARRGGBB.
-         * The files used by ACTIS use 00 as alpha,
-         * so keep the RGB portion for CSS display.
+         * OUD2の種別色は8桁BGR（00BBGGRR）。
+         * 値はそのまま保存し、表示側でCSS RGBへ変換する。
          */
         const color =
           String(
@@ -2091,22 +2090,26 @@ function parseOud2(
           ).trim()
 
         if (
-          /^[0-9A-Fa-f]{8}$/.test(color)
+          /^(?:0x)?[0-9A-Fa-f]{8}$/.test(color)
         ) {
 
-          currentTrainType.trainTypeColor =
-            "#" +
-            color.slice(2)
+          currentTrainType.JikokuhyouBackColor =
+            color.replace(
+              /^0x/i,
+              ""
+            )
 
         }
 
         else if (
-          /^[0-9A-Fa-f]{6}$/.test(color)
+          /^(?:0x)?[0-9A-Fa-f]{6}$/.test(color)
         ) {
 
-          currentTrainType.trainTypeColor =
-            "#" +
-            color
+          currentTrainType.JikokuhyouBackColor =
+            color.replace(
+              /^0x/i,
+              ""
+            )
 
         }
 

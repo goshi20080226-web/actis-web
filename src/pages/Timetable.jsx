@@ -313,109 +313,67 @@ function normalizeColor(value) {
     value === null ||
     value === ""
   ) {
-
     return ""
-
   }
 
+  if (typeof value === "string") {
 
-  // すでにCSSカラー文字列の場合
-  if (
-    typeof value === "string"
-  ) {
+    const text = value.trim()
 
-    const text =
-      value.trim()
-
-
-    if (
-      /^#[0-9a-fA-F]{6}$/.test(text)
-    ) {
-
+    if (/^#[0-9a-fA-F]{6}$/.test(text)) {
       return text
-
     }
 
-
-    if (
-      /^#[0-9a-fA-F]{3}$/.test(text)
-    ) {
-
+    if (/^#[0-9a-fA-F]{3}$/.test(text)) {
       return text
-
     }
 
-
-    // rgb(255, 0, 0)
-    if (
-      /^rgb\(/i.test(text)
-    ) {
-
+    if (/^rgb\\(/i.test(text)) {
       return text
-
     }
 
+    /*
+     * OUD2の種別色は8桁BGR順（00BBGGRR）。
+     * 例: 00FF8000 -> #0080FF
+     */
+    const bgr8Match = text.match(
+      /^(?:0x)?([0-9a-fA-F]{8})$/
+    )
 
-    // OUD2の 0xRRGGBB 表記
-    const hexMatch =
-      text.match(
-        /^0x([0-9a-fA-F]{6})$/
-      )
+    if (bgr8Match) {
 
+      const hex = bgr8Match[1]
 
-    if (
-      hexMatch
-    ) {
+      const b = hex.slice(2, 4)
+      const g = hex.slice(4, 6)
+      const r = hex.slice(6, 8)
 
-      return "#" +
-        hexMatch[1]
-
+      return "#" + r + g + b
     }
 
-
-    // OUD2の 16進数が#なしで入っている場合
-    if (
-      /^[0-9a-fA-F]{6}$/.test(text)
-    ) {
-
-      return "#" +
-        text
-
+    /*
+     * 6桁値は既存データ互換のためそのまま扱う。
+     */
+    if (/^(?:0x)?[0-9a-fA-F]{6}$/.test(text)) {
+      return "#" + text.replace(/^0x/i, "")
     }
-
 
     return ""
-
   }
 
+  if (typeof value === "object") {
 
-  // {r,g,b} / {red,green,blue}
-  if (
-    typeof value ===
-    "object"
-  ) {
+    const r = Number(
+      value.r ?? value.red ?? value.R
+    )
 
-    const r =
-      Number(
-        value.r ??
-        value.red ??
-        value.R
-      )
+    const g = Number(
+      value.g ?? value.green ?? value.G
+    )
 
-    const g =
-      Number(
-        value.g ??
-        value.green ??
-        value.G
-      )
-
-    const b =
-      Number(
-        value.b ??
-        value.blue ??
-        value.B
-      )
-
+    const b = Number(
+      value.b ?? value.blue ?? value.B
+    )
 
     if (
       Number.isFinite(r) &&
@@ -423,61 +381,21 @@ function normalizeColor(value) {
       Number.isFinite(b)
     ) {
 
-      const clamp =
-        number =>
-          Math.max(
-            0,
-            Math.min(
-              255,
-              number
-            )
-          )
-
+      const clamp = number =>
+        Math.max(0, Math.min(255, number))
 
       return "#" +
         [r, g, b]
-          .map(
-            number =>
-              Math.round(
-                clamp(number)
-              )
+          .map(number =>
+            Math.round(clamp(number))
               .toString(16)
               .padStart(2, "0")
           )
           .join("")
-
     }
-
   }
-
-
-  // 数値の0xRRGGBB / RRGGBB
-  if (
-    typeof value ===
-    "number" &&
-    Number.isFinite(value)
-  ) {
-
-    const number =
-      Math.max(
-        0,
-        Math.min(
-          0xffffff,
-          Math.round(value)
-        )
-      )
-
-
-    return "#" +
-      number
-        .toString(16)
-        .padStart(6, "0")
-
-  }
-
 
   return ""
-
 }
 
 
@@ -508,16 +426,12 @@ function getTrainTypeColor(
   /*
    * OUD2の種別色を最優先。
    * trainTypeColor はアップロード時に
-   * JikokuhyouMojiColor を保存する想定。
+   * 8桁BGR（00BBGGRR）のJikokuhyouBackColorを使用する。
    */
 
   const candidates = [
 
     train.trainTypeColor,
-
-    train.JikokuhyouMojiColor,
-
-    train.jikokuhyouMojiColor,
 
     train.typeColor,
 
@@ -525,21 +439,9 @@ function getTrainTypeColor(
 
     train.color,
 
-    train.syubetsu?.JikokuhyouMojiColor,
-
-    train.syubetsu?.jikokuhyouMojiColor,
-
     train.syubetsu?.color,
 
-    train.typeInfo?.JikokuhyouMojiColor,
-
-    train.typeInfo?.jikokuhyouMojiColor,
-
     train.typeInfo?.color,
-
-    train.type?.JikokuhyouMojiColor,
-
-    train.type?.jikokuhyouMojiColor,
 
     train.type?.color
 
