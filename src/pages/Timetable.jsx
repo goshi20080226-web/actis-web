@@ -313,261 +313,88 @@ function normalizeColor(value) {
     value === null ||
     value === ""
   ) {
+    return ""
+  }
+
+  if (typeof value === "string") {
+    const text = value.trim()
+
+    if (/^#[0-9a-fA-F]{6}$/.test(text)) {
+      return text
+    }
+
+    if (/^#[0-9a-fA-F]{3}$/.test(text)) {
+      return text
+    }
+
+    /* OUD2: 8桁 BGR (00BBGGRR) */
+    if (/^[0-9a-fA-F]{8}$/.test(text)) {
+      return "#" +
+        text.slice(6, 8) +
+        text.slice(4, 6) +
+        text.slice(2, 4)
+    }
+
+    if (/^0x[0-9a-fA-F]{8}$/i.test(text)) {
+      const hex = text.slice(2)
+      return "#" +
+        hex.slice(6, 8) +
+        hex.slice(4, 6) +
+        hex.slice(2, 4)
+    }
+
+    if (/^0x[0-9a-fA-F]{6}$/i.test(text)) {
+      return "#" + text.slice(2)
+    }
+
+    if (/^[0-9a-fA-F]{6}$/.test(text)) {
+      return "#" + text
+    }
 
     return ""
-
   }
 
+  if (typeof value === "object") {
+    const r = Number(value.r ?? value.red ?? value.R)
+    const g = Number(value.g ?? value.green ?? value.G)
+    const b = Number(value.b ?? value.blue ?? value.B)
 
-  // すでにCSSカラー文字列の場合
-  if (
-    typeof value === "string"
-  ) {
-
-    const text =
-      value.trim()
-
-
-    if (
-      /^#[0-9a-fA-F]{6}$/.test(text)
-    ) {
-
-      return text
-
+    if (Number.isFinite(r) && Number.isFinite(g) && Number.isFinite(b)) {
+      const clamp = number => Math.max(0, Math.min(255, number))
+      return "#" + [r, g, b].map(number =>
+        Math.round(clamp(number)).toString(16).padStart(2, "0")
+      ).join("")
     }
-
-
-    if (
-      /^#[0-9a-fA-F]{3}$/.test(text)
-    ) {
-
-      return text
-
-    }
-
-
-    // rgb(255, 0, 0)
-    if (
-      /^rgb\(/i.test(text)
-    ) {
-
-      return text
-
-    }
-
-
-    // OUD2の 0xRRGGBB 表記
-    const hexMatch =
-      text.match(
-        /^0x([0-9a-fA-F]{6})$/
-      )
-
-
-    if (
-      hexMatch
-    ) {
-
-      return "#" +
-        hexMatch[1]
-
-    }
-
-
-    // OUD2の 16進数が#なしで入っている場合
-    if (
-      /^[0-9a-fA-F]{6}$/.test(text)
-    ) {
-
-      return "#" +
-        text
-
-    }
-
-
-    return ""
-
   }
-
-
-  // {r,g,b} / {red,green,blue}
-  if (
-    typeof value ===
-    "object"
-  ) {
-
-    const r =
-      Number(
-        value.r ??
-        value.red ??
-        value.R
-      )
-
-    const g =
-      Number(
-        value.g ??
-        value.green ??
-        value.G
-      )
-
-    const b =
-      Number(
-        value.b ??
-        value.blue ??
-        value.B
-      )
-
-
-    if (
-      Number.isFinite(r) &&
-      Number.isFinite(g) &&
-      Number.isFinite(b)
-    ) {
-
-      const clamp =
-        number =>
-          Math.max(
-            0,
-            Math.min(
-              255,
-              number
-            )
-          )
-
-
-      return "#" +
-        [r, g, b]
-          .map(
-            number =>
-              Math.round(
-                clamp(number)
-              )
-              .toString(16)
-              .padStart(2, "0")
-          )
-          .join("")
-
-    }
-
-  }
-
-
-  // 数値の0xRRGGBB / RRGGBB
-  if (
-    typeof value ===
-    "number" &&
-    Number.isFinite(value)
-  ) {
-
-    const number =
-      Math.max(
-        0,
-        Math.min(
-          0xffffff,
-          Math.round(value)
-        )
-      )
-
-
-    return "#" +
-      number
-        .toString(16)
-        .padStart(6, "0")
-
-  }
-
 
   return ""
-
 }
 
 
-function getTrainTypeColor(
-  train
-) {
-
-  const backColor =
-    train?.JikokuhyouBackColor ||
-    train?.jikokuhyouBackColor ||
-    train?.trainType?.JikokuhyouBackColor ||
-    train?.trainType?.jikokuhyouBackColor ||
-    ""
-
-  if (backColor) {
-    return normalizeColor(
-      backColor
-    )
-  }
-
-
+function getTrainTypeColor(train) {
 
   if (!train) {
     return ""
   }
 
-
-  /*
-   * OUD2の種別色を最優先。
-   * trainTypeColor はアップロード時に
-   * JikokuhyouMojiColor を保存する想定。
-   */
-
   const candidates = [
-
     train.trainTypeColor,
-
     train.JikokuhyouMojiColor,
-
     train.jikokuhyouMojiColor,
-
-    train.typeColor,
-
-    train.syubetsuColor,
-
-    train.color,
-
-    train.syubetsu?.JikokuhyouMojiColor,
-
-    train.syubetsu?.jikokuhyouMojiColor,
-
-    train.syubetsu?.color,
-
+    train.trainType?.JikokuhyouMojiColor,
+    train.trainType?.jikokuhyouMojiColor,
     train.typeInfo?.JikokuhyouMojiColor,
-
-    train.typeInfo?.jikokuhyouMojiColor,
-
-    train.typeInfo?.color,
-
-    train.type?.JikokuhyouMojiColor,
-
-    train.type?.jikokuhyouMojiColor,
-
-    train.type?.color
-
+    train.typeInfo?.jikokuhyouMojiColor
   ]
 
-
-  for (
-    const candidate
-    of candidates
-  ) {
-
-    const color =
-      normalizeColor(
-        candidate
-      )
-
-
+  for (const candidate of candidates) {
+    const color = normalizeColor(candidate)
     if (color) {
-
       return color
-
     }
-
   }
 
-
   return ""
-
 }
 
 
@@ -1589,7 +1416,9 @@ function Timetable() {
                                     row.typeColor
                                       ? {
                                           color:
-                                            row.typeColor
+                                            row.typeColor,
+                                          backgroundColor:
+                                            "#ffffff"
                                         }
                                       : undefined
                                   }

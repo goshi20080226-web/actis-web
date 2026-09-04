@@ -2081,9 +2081,8 @@ function parseOud2(
       ) {
 
         /*
-         * OUD2 stores this as AARRGGBB.
-         * The files used by ACTIS use 00 as alpha,
-         * so keep the RGB portion for CSS display.
+         * OUD2の種別文字色は8桁のBGR順。
+         * 00BBGGRR → CSSの #RRGGBB に変換する。
          */
         const color =
           String(
@@ -2096,7 +2095,9 @@ function parseOud2(
 
           currentTrainType.trainTypeColor =
             "#" +
-            color.slice(2)
+            color.slice(6, 8) +
+            color.slice(4, 6) +
+            color.slice(2, 4)
 
         }
 
@@ -2104,6 +2105,7 @@ function parseOud2(
           /^[0-9A-Fa-f]{6}$/.test(color)
         ) {
 
+          /* 旧形式との互換 */
           currentTrainType.trainTypeColor =
             "#" +
             color
@@ -2318,8 +2320,8 @@ function parseOud2(
         type?.abbreviation || ""
 
       train.trainTypeColor =
-        type?.JikokuhyouBackColor ||
-        type?.jikokuhyouBackColor ||
+        type?.JikokuhyouMojiColor ||
+        type?.jikokuhyouMojiColor ||
         type?.trainTypeColor ||
         ""
 

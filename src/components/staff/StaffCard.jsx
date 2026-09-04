@@ -69,9 +69,33 @@ function formatType(train) {
 }
 
 function getTypeColor(train) {
-  const value = train?.trainTypeColor || train?.typeColor || train?.color || ""
-  const text = String(value).trim()
-  return /^#[0-9a-fA-F]{6}$/.test(text) ? text : ""
+  const values = [
+    train?.trainTypeColor,
+    train?.JikokuhyouMojiColor,
+    train?.jikokuhyouMojiColor,
+    train?.trainType?.JikokuhyouMojiColor,
+    train?.trainType?.jikokuhyouMojiColor,
+    train?.typeInfo?.JikokuhyouMojiColor,
+    train?.typeInfo?.jikokuhyouMojiColor
+  ]
+
+  for (const value of values) {
+    const text = String(value ?? "").trim()
+
+    if (/^#[0-9a-fA-F]{6}$/.test(text)) {
+      return text
+    }
+
+    /* OUD2: 8桁 BGR (00BBGGRR) */
+    if (/^[0-9a-fA-F]{8}$/.test(text)) {
+      return "#" +
+        text.slice(6, 8) +
+        text.slice(4, 6) +
+        text.slice(2, 4)
+    }
+  }
+
+  return ""
 }
 
 function StaffCard({ train, rosterItem = null, stationRemarks = {}, nextTrainNoOverride = "", previousTrainNoOverride = "" }) {

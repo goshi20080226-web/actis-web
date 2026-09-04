@@ -1548,7 +1548,9 @@ function Timetable() {
                                     row.typeColor
                                       ? {
                                           color:
-                                            row.typeColor
+                                            row.typeColor,
+                                          backgroundColor:
+                                            "#ffffff"
                                         }
                                       : undefined
                                   }
