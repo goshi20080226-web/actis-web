@@ -328,7 +328,7 @@ function normalizeColor(value) {
       return text
     }
 
-    if (/^rgb\\(/i.test(text)) {
+    if (/^rgb\(/i.test(text)) {
       return text
     }
 
