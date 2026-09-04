@@ -2077,12 +2077,17 @@ function parseOud2(
       }
 
       else if (
-        key === "JikokuhyouMojiColor"
+        key === "JikokuhyouBackColor"
       ) {
 
         /*
+<<<<<<< HEAD
          * OUD2の種別文字色は8桁のBGR順。
          * 00BBGGRR → CSSの #RRGGBB に変換する。
+=======
+         * OUD2の種別色は8桁BGR（00BBGGRR）。
+         * 値はそのまま保存し、表示側でCSS RGBへ変換する。
+>>>>>>> e37fc5cf1ec07e8a0f0d770bb8adae195580febc
          */
         const color =
           String(
@@ -2090,25 +2095,41 @@ function parseOud2(
           ).trim()
 
         if (
-          /^[0-9A-Fa-f]{8}$/.test(color)
+          /^(?:0x)?[0-9A-Fa-f]{8}$/.test(color)
         ) {
 
+<<<<<<< HEAD
           currentTrainType.trainTypeColor =
             "#" +
             color.slice(6, 8) +
             color.slice(4, 6) +
             color.slice(2, 4)
+=======
+          currentTrainType.JikokuhyouBackColor =
+            color.replace(
+              /^0x/i,
+              ""
+            )
+>>>>>>> e37fc5cf1ec07e8a0f0d770bb8adae195580febc
 
         }
 
         else if (
-          /^[0-9A-Fa-f]{6}$/.test(color)
+          /^(?:0x)?[0-9A-Fa-f]{6}$/.test(color)
         ) {
 
+<<<<<<< HEAD
           /* 旧形式との互換 */
           currentTrainType.trainTypeColor =
             "#" +
             color
+=======
+          currentTrainType.JikokuhyouBackColor =
+            color.replace(
+              /^0x/i,
+              ""
+            )
+>>>>>>> e37fc5cf1ec07e8a0f0d770bb8adae195580febc
 
         }
 
