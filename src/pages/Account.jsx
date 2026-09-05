@@ -23,580 +23,338 @@ import {
 } from "../firebase/config"
 
 
+const AUTH_WORKER_ORIGIN =
+  "https://actis-auth-worker.goshi20080226.workers.dev"
+
+
 function Account() {
 
-  const navigate =
-    useNavigate()
+  const navigate = useNavigate()
 
-
-  const [
-    user,
-    setUser
-  ] =
-    useState(null)
-
-
-  const [
-    profile,
-    setProfile
-  ] =
-    useState(null)
-
-
-  const [
-    displayName,
-    setDisplayName
-  ] =
-    useState("")
-
-
-  const [
-    loading,
-    setLoading
-  ] =
-    useState(true)
-
-
-  const [
-    saving,
-    setSaving
-  ] =
-    useState(false)
-
-
-  const [
-    message,
-    setMessage
-  ] =
-    useState("")
-
-
-  const [
-    error,
-    setError
-  ] =
-    useState("")
-
+  const [user, setUser] = useState(null)
+  const [profile, setProfile] = useState(null)
+  const [displayName, setDisplayName] = useState("")
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [message, setMessage] = useState("")
+  const [error, setError] = useState("")
 
   useEffect(() => {
 
-    const loadAccount =
-      async () => {
+    const loadAccount = async () => {
 
-        try {
+      try {
 
-          const currentUser =
-            auth.currentUser
+        const currentUser = auth.currentUser
 
-
-          if (!currentUser) {
-
-            navigate(
-              "/login",
-              {
-                replace: true
-              }
-            )
-
-            return
-
-          }
-
-
-          setUser(
-            currentUser
-          )
-
-
-          const snapshot =
-            await get(
-              ref(
-                database,
-                `users/${currentUser.uid}/profile`
-              )
-            )
-
-
-          const data =
-            snapshot.exists()
-              ? snapshot.val()
-              : {}
-
-
-          setProfile(
-            data
-          )
-
-
-          setDisplayName(
-            data.displayName ||
-            data.discord?.globalName ||
-            data.discord?.username ||
-            data.google?.name ||
-            ""
-          )
-
+        if (!currentUser) {
+          navigate("/login", { replace: true })
+          return
         }
 
-        catch (err) {
+        setUser(currentUser)
 
-          console.error(
-            "Account load error:",
-            err
+        const snapshot = await get(
+          ref(
+            database,
+            `users/${currentUser.uid}/profile`
           )
+        )
 
+        const data = snapshot.exists()
+          ? snapshot.val()
+          : {}
 
-          setError(
-            "アカウント情報を取得できませんでした。"
-          )
+        setProfile(data)
 
-        }
+        setDisplayName(
+          data.displayName ||
+          data.discord?.globalName ||
+          data.discord?.username ||
+          data.google?.name ||
+          ""
+        )
 
-        finally {
+      } catch (err) {
 
-          setLoading(
-            false
-          )
+        console.error("Account load error:", err)
+        setError("アカウント情報を取得できませんでした。")
 
-        }
+      } finally {
+
+        setLoading(false)
 
       }
 
+    }
 
     loadAccount()
 
   }, [navigate])
 
 
-  const saveProfile =
-    async () => {
+  const saveProfile = async () => {
 
-      if (!user) {
-        return
-      }
+    if (!user) return
 
+    const name = String(displayName || "").trim()
 
-      const name =
-        String(
-          displayName || ""
-        ).trim()
+    if (!name) {
+      setError("表示名を入力してください。")
+      return
+    }
 
+    try {
 
-      if (!name) {
+      setSaving(true)
+      setMessage("")
+      setError("")
 
-        setError(
-          "表示名を入力してください。"
-        )
+      const updatedAt = Date.now()
 
-        return
+      await update(
+        ref(database, `users/${user.uid}/profile`),
+        {
+          displayName: name,
+          updatedAt
+        }
+      )
 
-      }
+      setProfile(current => ({
+        ...current,
+        displayName: name,
+        updatedAt
+      }))
 
+      setMessage("アカウント情報を保存しました。")
 
-      try {
+    } catch (err) {
 
-        setSaving(
-          true
-        )
+      console.error("Account save error:", err)
+      setError(`保存に失敗しました: ${err.message}`)
 
-        setMessage("")
-        setError("")
+    } finally {
 
-
-        await update(
-
-          ref(
-            database,
-            `users/${user.uid}/profile`
-          ),
-
-          {
-
-            displayName:
-              name,
-
-            updatedAt:
-              Date.now()
-
-          }
-
-        )
-
-
-        setProfile(
-          current => ({
-            ...current,
-            displayName:
-              name,
-            updatedAt:
-              Date.now()
-          })
-        )
-
-
-        setMessage(
-          "アカウント情報を保存しました。"
-        )
-
-      }
-
-      catch (err) {
-
-        console.error(
-          "Account save error:",
-          err
-        )
-
-
-        setError(
-          `保存に失敗しました: ${err.message}`
-        )
-
-      }
-
-      finally {
-
-        setSaving(
-          false
-        )
-
-      }
+      setSaving(false)
 
     }
 
-
-  const logout =
-    async () => {
-
-      try {
-
-        await signOut(
-          auth
-        )
+  }
 
 
-        navigate(
-          "/login",
-          {
-            replace: true
-          }
-        )
+  const logout = async () => {
 
-      }
+    try {
 
-      catch (err) {
+      await signOut(auth)
+      navigate("/login", { replace: true })
 
-        console.error(
-          "Logout error:",
-          err
-        )
+    } catch (err) {
 
-
-        setError(
-          `ログアウトに失敗しました: ${err.message}`
-        )
-
-      }
+      console.error("Logout error:", err)
+      setError(`ログアウトに失敗しました: ${err.message}`)
 
     }
+
+  }
+
+
+  const startLink = provider => {
+
+    if (!user) return
+
+    setError("")
+    setMessage(`${providerLabel(provider)}の連携を開始します。`)
+
+    const params = new URLSearchParams({
+      uid: user.uid,
+      mode: "link"
+    })
+
+    window.location.href =
+      `${AUTH_WORKER_ORIGIN}/auth/link/${provider}?${params.toString()}`
+
+  }
+
+
+  const providerLabel = provider => {
+
+    if (provider === "google") return "Google"
+    if (provider === "discord") return "Discord"
+    if (provider === "roblox") return "Roblox"
+    return provider
+
+  }
 
 
   if (loading) {
 
     return (
-
       <div>
-
-        <h1>
-          アカウント設定
-        </h1>
-
-        <p>
-          読み込み中...
-        </p>
-
+        <h1>アカウント設定</h1>
+        <p>読み込み中...</p>
       </div>
-
     )
 
   }
 
+  if (!user) return null
 
-  if (!user) {
-    return null
+  const providers = Array.isArray(profile?.providers)
+    ? profile.providers
+    : []
+
+  const providerInfo = {
+    google: {
+      name: "Google",
+      value: profile?.google?.email || "Googleアカウント"
+    },
+    discord: {
+      name: "Discord",
+      value:
+        profile?.discord?.globalName ||
+        profile?.discord?.username ||
+        "Discordアカウント"
+    },
+    roblox: {
+      name: "Roblox",
+      value:
+        profile?.roblox?.displayName ||
+        profile?.roblox?.username ||
+        "Robloxアカウント"
+    }
   }
-
-
-  const providers =
-    Array.isArray(
-      profile?.providers
-    )
-      ? profile.providers
-      : []
-
-
-  const discordConnected =
-    providers.includes(
-      "discord"
-    )
-
-
-  const googleConnected =
-    providers.includes(
-      "google"
-    )
-
 
   return (
+    <div className="account-page">
 
-    <div
-      className="account-page"
-    >
-
-      <div
-        className="account-header"
-      >
-
+      <div className="account-header">
         <div>
-
-          <h1>
-            アカウント設定
-          </h1>
-
-          <p>
-            ACTISアカウントを管理します。
-          </p>
-
+          <h1>アカウント設定</h1>
+          <p>ACTISアカウントを管理します。</p>
         </div>
-
 
         <button
           type="button"
-          onClick={() =>
-            navigate("/")
-          }
+          onClick={() => navigate("/")}
         >
           戻る
         </button>
-
       </div>
 
+      <div className="account-card">
 
-      <div
-        className="account-card"
-      >
+        <h2>ACTISアカウント</h2>
 
-        <h2>
-          ACTISアカウント
-        </h2>
-
-
-        <div
-          className="account-row"
-        >
-
-          <div
-            className="account-label"
-          >
+        <div className="account-row">
+          <div className="account-label">
             ACTISアカウントID
           </div>
-
-
-          <div
-            className="account-value"
-          >
+          <div className="account-value">
             {user.uid}
           </div>
-
         </div>
 
-
-        <div
-          className="account-row"
-        >
-
-          <div
-            className="account-label"
-          >
+        <div className="account-row">
+          <div className="account-label">
             表示名
           </div>
 
-
-          <div
-            className="account-value account-edit"
-          >
-
+          <div className="account-value account-edit">
             <input
               type="text"
-              value={
-                displayName
-              }
-              onChange={
-                event =>
-                  setDisplayName(
-                    event.target.value
-                  )
-              }
+              value={displayName}
+              onChange={event => setDisplayName(event.target.value)}
               maxLength={50}
-              disabled={
-                saving
-              }
+              disabled={saving}
             />
-
 
             <button
               type="button"
-              onClick={
-                saveProfile
-              }
-              disabled={
-                saving
-              }
+              onClick={saveProfile}
+              disabled={saving}
+            >
+              {saving ? "保存中..." : "保存"}
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <div className="account-card">
+
+        <h2>アカウント連携</h2>
+
+        <p>
+          Google・Discord・Robloxを同じACTISアカウントへ連携できます。
+        </p>
+
+        {Object.entries(providerInfo).map(([provider, info]) => {
+
+          const connected = providers.includes(provider)
+
+          return (
+            <div
+              className="account-provider"
+              key={provider}
             >
 
-              {saving
-                ? "保存中..."
-                : "保存"}
+              <div>
+                <strong>{info.name}</strong>
+                <p>{connected ? info.value : `${info.name}アカウント未連携`}</p>
+              </div>
 
-            </button>
+              <div>
+                <span
+                  className={
+                    connected
+                      ? "provider-connected"
+                      : "provider-disabled"
+                  }
+                >
+                  {connected ? "連携済み" : "未連携"}
+                </span>
 
-          </div>
+                {!connected && (
+                  <button
+                    type="button"
+                    onClick={() => startLink(provider)}
+                  >
+                    {info.name}を連携
+                  </button>
+                )}
+              </div>
 
-        </div>
+            </div>
+          )
 
-      </div>
-
-
-      <div
-        className="account-card"
-      >
-
-        <h2>
-          ログイン方法
-        </h2>
-
-
-        <div
-          className="account-provider"
-        >
-
-          <div>
-
-            <strong>
-              Discord
-            </strong>
-
-            <p>
-              {profile?.discord?.username ||
-                "Discordアカウント"}
-            </p>
-
-          </div>
-
-
-          <span
-            className={
-              discordConnected
-                ? "provider-connected"
-                : "provider-disabled"
-            }
-          >
-
-            {discordConnected
-              ? "接続済み"
-              : "未接続"}
-
-          </span>
-
-        </div>
-
-
-        <div
-          className="account-provider"
-        >
-
-          <div>
-
-            <strong>
-              Google
-            </strong>
-
-            <p>
-              {profile?.google?.email ||
-                "Googleアカウント"}
-            </p>
-
-          </div>
-
-
-          <span
-            className={
-              googleConnected
-                ? "provider-connected"
-                : "provider-disabled"
-            }
-          >
-
-            {googleConnected
-              ? "接続済み"
-              : "未接続"}
-
-          </span>
-
-        </div>
+        })}
 
       </div>
 
+      <div className="account-card account-danger">
 
-      <div
-        className="account-card account-danger"
-      >
-
-        <h2>
-          セッション
-        </h2>
-
+        <h2>セッション</h2>
 
         <button
           type="button"
-          onClick={
-            logout
-          }
+          onClick={logout}
         >
-
           ログアウト
-
         </button>
 
       </div>
 
-
       {message && (
-
-        <p
-          className="account-message"
-        >
-          {message}
-        </p>
-
+        <p className="account-message">{message}</p>
       )}
 
-
       {error && (
-
-        <p
-          className="account-error"
-        >
-          {error}
-        </p>
-
+        <p className="account-error">{error}</p>
       )}
 
     </div>
-
   )
-
 }
-
 
 export default Account
