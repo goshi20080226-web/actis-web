@@ -138,29 +138,13 @@ function StaffCard({
     if (!trainNo && !trainIdOverride) return
 
     const datasetId = String(train?.datasetId || "")
-    const params = new URLSearchParams()
+    const targetTrainNo = String(trainNo || "").trim()
 
-    if (datasetId) {
-      params.set("dataset", datasetId)
-    }
-
-    // 行路から開いたスタフは、元のFirebase列車ID
-    // (dataset_xxx_Nobori_002T / dataset_xxx_Kudari_002T) をそのままURLに使う。
-    // 方向は Nobori=上り、Kudari=下り。
-    if (trainIdOverride) {
-      const query = params.toString()
-      navigate(`/staff/${encodeURIComponent(trainIdOverride)}${query ? `?${query}` : ""}`)
-      return
-    }
-
-    // trainIdが渡されない場合:
-    // 列車番号の奇偶が変わったら方向も反転する。
-    // 例: 上り 002T → 003T は下り、
-    //     下り 003T → 004T は上り。
-    // 奇数→奇数、偶数→偶数の場合は現在の方向を維持する。
-    if (datasetId && directionKey && trainNo) {
-      const currentNoMatch = String(train?.trainNo || "").match(/(\\d+)/)
-      const targetNoMatch = String(trainNo).match(/(\\d+)/)
+    // 行路由来のtrainIdOverrideがあっても、上下方向は列車番号の奇偶規則を優先する。
+    // Nobori=上り / Kudari=下り。
+    if (datasetId && directionKey && targetTrainNo) {
+      const currentNoMatch = String(train?.trainNo || "").match(/(\d+)/)
+      const targetNoMatch = targetTrainNo.match(/(\d+)/)
 
       let targetDirection = directionKey
 
@@ -173,21 +157,25 @@ function StaffCard({
           Number.isFinite(targetNumber) &&
           (currentNumber % 2) !== (targetNumber % 2)
         ) {
-          targetDirection =
-            directionKey === "Nobori"
-              ? "Kudari"
-              : "Nobori"
+          targetDirection = directionKey === "Nobori" ? "Kudari" : "Nobori"
         }
       }
 
-      const canonicalTrainId = `${datasetId}_${targetDirection}_${trainNo}`
-      const query = params.toString()
-      navigate(`/staff/${encodeURIComponent(canonicalTrainId)}${query ? `?${query}` : ""}`)
+      const canonicalTrainId = `${datasetId}_${targetDirection}_${targetTrainNo}`
+      // datasetクエリは付けない。列車IDだけで対象データセットと方向を特定する。
+      navigate(`/staff/${encodeURIComponent(canonicalTrainId)}`)
       return
     }
 
-    const query = params.toString()
-    navigate(`/staff/train/${encodeURIComponent(trainNo)}${query ? `?${query}` : ""}`)
+    // dataset/directionを特定できない場合のみ、渡されたFirebase trainIdを使用する。
+    if (trainIdOverride) {
+      navigate(`/staff/${encodeURIComponent(trainIdOverride)}`)
+      return
+    }
+
+    if (targetTrainNo) {
+      navigate(`/staff/train/${encodeURIComponent(targetTrainNo)}`)
+    }
   }
 
   return (
