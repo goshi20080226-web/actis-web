@@ -1145,6 +1145,7 @@ function Staff() {
           stationRemarks={rosterStationRemarks}
           nextTrainNoOverride={nextRosterTrainItem?.trainNo || ""}
           nextTrainIdOverride={nextRosterTrainItem?.trainId || ""}
+          previousTrainNoOverride={previousRosterTrainItem?.trainNo || ""}
           previousTrainIdOverride={previousRosterTrainItem?.trainId || ""}
         />
 
