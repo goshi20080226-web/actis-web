@@ -153,10 +153,34 @@ function StaffCard({
       return
     }
 
-    // trainIdが渡されない場合も、現在の列車の方向から
-    // 正規のFirebase列車IDを組み立ててスタフURLへ遷移する。
+    // trainIdが渡されない場合:
+    // 列車番号の奇偶が変わったら方向も反転する。
+    // 例: 上り 002T → 003T は下り、
+    //     下り 003T → 004T は上り。
+    // 奇数→奇数、偶数→偶数の場合は現在の方向を維持する。
     if (datasetId && directionKey && trainNo) {
-      const canonicalTrainId = `${datasetId}_${directionKey}_${trainNo}`
+      const currentNoMatch = String(train?.trainNo || "").match(/(\\d+)/)
+      const targetNoMatch = String(trainNo).match(/(\\d+)/)
+
+      let targetDirection = directionKey
+
+      if (currentNoMatch && targetNoMatch) {
+        const currentNumber = Number(currentNoMatch[1])
+        const targetNumber = Number(targetNoMatch[1])
+
+        if (
+          Number.isFinite(currentNumber) &&
+          Number.isFinite(targetNumber) &&
+          (currentNumber % 2) !== (targetNumber % 2)
+        ) {
+          targetDirection =
+            directionKey === "Nobori"
+              ? "Kudari"
+              : "Nobori"
+        }
+      }
+
+      const canonicalTrainId = `${datasetId}_${targetDirection}_${trainNo}`
       const query = params.toString()
       navigate(`/staff/${encodeURIComponent(canonicalTrainId)}${query ? `?${query}` : ""}`)
       return
