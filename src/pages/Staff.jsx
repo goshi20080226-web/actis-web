@@ -532,14 +532,54 @@ function Staff() {
               const wantedDataset =
                 datasetFromUrl || selectedDatasetId || ""
 
+              const wantedTrainNo = String(trainNo || "").trim()
+
               const candidates = Object.entries(allTrains)
                 .map(([id, value]) => ({ id, ...(value || {}) }))
-                .filter(item =>
-                  String(item.trainNo || "") === String(trainNo) &&
-                  (!wantedDataset || String(item.datasetId || "") === String(wantedDataset))
-                )
+                .filter(item => {
+                  const itemTrainNo = String(
+                    item.trainNo ??
+                    item.Ressyabangou ??
+                    item.ressyabangou ??
+                    item.trainNumber ??
+                    item.number ??
+                    ""
+                  ).trim()
+
+                  const sameTrainNo =
+                    itemTrainNo === wantedTrainNo
+
+                  const sameDataset =
+                    !wantedDataset ||
+                    String(item.datasetId || "").trim() === String(wantedDataset).trim()
+
+                  return sameTrainNo && sameDataset
+                })
 
               data = candidates[0] || null
+
+              // 古い保存データで datasetId が付いていない場合でも、
+              // 同じユーザーの列車番号が一意なら列車を解決する。
+              if (!data && wantedTrainNo) {
+                const fallbackCandidates = Object.entries(allTrains)
+                  .map(([id, value]) => ({ id, ...(value || {}) }))
+                  .filter(item => {
+                    const itemTrainNo = String(
+                      item.trainNo ??
+                      item.Ressyabangou ??
+                      item.ressyabangou ??
+                      item.trainNumber ??
+                      item.number ??
+                      ""
+                    ).trim()
+
+                    return itemTrainNo === wantedTrainNo
+                  })
+
+                if (fallbackCandidates.length === 1) {
+                  data = fallbackCandidates[0]
+                }
+              }
             }
           }
 
