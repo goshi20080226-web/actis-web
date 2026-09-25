@@ -1037,6 +1037,15 @@ function Staff() {
     return null
   })()
 
+  const previousRosterTrainItem = (() => {
+    if (!rosterInfo?.items || rosterInfo.itemIndex === undefined) return null
+    for (let i = Number(rosterInfo.itemIndex) - 1; i >= 0; i -= 1) {
+      const item = rosterInfo.items[i]
+      if (item?.type === "train") return item
+    }
+    return null
+  })()
+
   // 行路で指定した交代駅を、その駅の「記事」へ入れる。
   // 前交代＝その列車で乗務を開始する駅、後交代＝乗務を終了する駅。
   const rosterStationRemarks = (() => {
@@ -1135,6 +1144,8 @@ function Staff() {
           rosterItem={currentRosterItem}
           stationRemarks={rosterStationRemarks}
           nextTrainNoOverride={nextRosterTrainItem?.trainNo || ""}
+          nextTrainIdOverride={nextRosterTrainItem?.trainId || ""}
+          previousTrainIdOverride={previousRosterTrainItem?.trainId || ""}
         />
 
       </div>
