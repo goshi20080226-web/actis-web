@@ -12,6 +12,10 @@ function Sidebar() {
         時刻表
       </Link>
 
+      <Link to="/board">
+        駅発車標
+      </Link>
+
       <Link to="/diagram">
         ダイヤグラム
       </Link>
