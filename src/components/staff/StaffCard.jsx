@@ -98,7 +98,15 @@ function getTypeColor(train) {
   return ""
 }
 
-function StaffCard({ train, rosterItem = null, stationRemarks = {}, nextTrainNoOverride = "", previousTrainNoOverride = "" }) {
+function StaffCard({
+  train,
+  rosterItem = null,
+  stationRemarks = {},
+  nextTrainNoOverride = "",
+  previousTrainNoOverride = "",
+  nextTrainIdOverride = "",
+  previousTrainIdOverride = ""
+}) {
   const navigate = useNavigate()
   const stations = Array.isArray(train?.stations) ? train.stations : []
 
@@ -119,14 +127,23 @@ function StaffCard({ train, rosterItem = null, stationRemarks = {}, nextTrainNoO
   const previousTrain = previousTrainNoOverride || (train?.previousTrainNo ? String(train.previousTrainNo) : "")
   const nextTrain = nextTrainNoOverride || (train?.nextTrainNo ? String(train.nextTrainNo) : "")
 
-  const jumpToTrain = trainNo => {
-    if (!trainNo) return
+  const jumpToTrain = (trainNo, trainIdOverride = "") => {
+    if (!trainNo && !trainIdOverride) return
 
     const datasetId = String(train?.datasetId || "")
     const params = new URLSearchParams()
 
     if (datasetId) {
       params.set("dataset", datasetId)
+    }
+
+    // 行路から開いたスタフは、元のFirebase列車ID
+    // (dataset_xxx_Nobori_002T) をそのままURLに使う。
+    // これにより /staff/train/002T へ変わってしまうのを防ぐ。
+    if (trainIdOverride) {
+      const query = params.toString()
+      navigate(`/staff/${encodeURIComponent(trainIdOverride)}${query ? `?${query}` : ""}`)
+      return
     }
 
     const query = params.toString()
@@ -211,7 +228,7 @@ function StaffCard({ train, rosterItem = null, stationRemarks = {}, nextTrainNoO
             <button
               type="button"
               className="turnback-val turnback-link"
-              onClick={() => jumpToTrain(previousTrain)}
+              onClick={() => jumpToTrain(previousTrain, previousTrainIdOverride)}
               title={`${previousTrain}列車のスタフを表示`}
             >
               {previousTrain}
@@ -226,7 +243,7 @@ function StaffCard({ train, rosterItem = null, stationRemarks = {}, nextTrainNoO
             <button
               type="button"
               className="turnback-val turnback-link"
-              onClick={() => jumpToTrain(nextTrain)}
+              onClick={() => jumpToTrain(nextTrain, nextTrainIdOverride)}
               title={`${nextTrain}列車のスタフを表示`}
             >
               {nextTrain}
