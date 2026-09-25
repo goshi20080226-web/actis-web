@@ -113,7 +113,14 @@ function StaffCard({
   const origin = train?.origin || stations[0]?.name || "—"
   const destination = train?.destination || train?.finalDest || stations.at(-1)?.name || "—"
   const operation = getOperationNumber(train)
-  const direction = train?.direction === "Kudari" ? "下り" : train?.direction === "Nobori" ? "上り" : ""
+  // ACTIS/OUD2の方向表記は Nobori=上り、Kudari=下り。
+  // Firebaseの列車IDにもこの値をそのまま使用する。
+  const directionKey = train?.direction === "Nobori"
+    ? "Nobori"
+    : train?.direction === "Kudari"
+      ? "Kudari"
+      : ""
+  const direction = directionKey === "Kudari" ? "下り" : directionKey === "Nobori" ? "上り" : ""
   const operationRemarks = getOperationRemarks(train, rosterItem)
 
   const sequence = train?.operationSequence !== undefined && train?.operationSequence !== null
@@ -138,11 +145,20 @@ function StaffCard({
     }
 
     // 行路から開いたスタフは、元のFirebase列車ID
-    // (dataset_xxx_Nobori_002T) をそのままURLに使う。
-    // これにより /staff/train/002T へ変わってしまうのを防ぐ。
+    // (dataset_xxx_Nobori_002T / dataset_xxx_Kudari_002T) をそのままURLに使う。
+    // 方向は Nobori=上り、Kudari=下り。
     if (trainIdOverride) {
       const query = params.toString()
       navigate(`/staff/${encodeURIComponent(trainIdOverride)}${query ? `?${query}` : ""}`)
+      return
+    }
+
+    // trainIdが渡されない場合も、現在の列車の方向から
+    // 正規のFirebase列車IDを組み立ててスタフURLへ遷移する。
+    if (datasetId && directionKey && trainNo) {
+      const canonicalTrainId = `${datasetId}_${directionKey}_${trainNo}`
+      const query = params.toString()
+      navigate(`/staff/${encodeURIComponent(canonicalTrainId)}${query ? `?${query}` : ""}`)
       return
     }
 
