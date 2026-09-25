@@ -334,6 +334,16 @@ function normalizeColor(value) {
       return text
     }
 
+    // OUD2の8桁BGR: 00BBGGRR -> CSS #RRGGBB
+    const oud8Match = text.match(/^(?:0x)?([0-9a-fA-F]{8})$/)
+    if (oud8Match) {
+      const bgr = oud8Match[1]
+      return "#" +
+        bgr.slice(6, 8) +
+        bgr.slice(4, 6) +
+        bgr.slice(2, 4)
+    }
+
 
     // rgb(255, 0, 0)
     if (
