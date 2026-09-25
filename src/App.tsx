@@ -11,7 +11,8 @@ import StaffRoster from './pages/StaffRoster.jsx'
 import StaffOperation from './pages/StaffOperation.jsx'
 import Roster from './pages/Roster.jsx'
 import TestFirebase from './pages/TestFirebase.jsx'
-import Timetable from './pages/Timetable.jsx'\nimport DepartureBoard from './pages/DepartureBoard.jsx'
+import Timetable from './pages/Timetable.jsx'
+import DepartureBoard from './pages/DepartureBoard.jsx'
 import Trains from './pages/trains.jsx'
 import Upload from './pages/upload.jsx'
 import AuthGuard from './components/AuthGuard.jsx'
@@ -105,6 +106,10 @@ function App() {
                       <StaffOperation />
                     </AuthGuard>
                   }
+                />
+                <Route
+                  path="/board"
+                  element={<AuthGuard><DepartureBoard /></AuthGuard>}
                 />
                 <Route
                   path="/timetable"
