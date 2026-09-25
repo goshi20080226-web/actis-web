@@ -199,7 +199,13 @@ function StaffTable({ stations = [], stationRemarks = {} }) {
 
                 <td className="staff-time-cell">
                   {isPass ? (
-                    <span className="pass-mark">レ</span>
+                    departure ? (
+                      <span className="pass-time">
+                        ({formatTime(departure)})
+                      </span>
+                    ) : (
+                      <span className="pass-mark">レ</span>
+                    )
                   ) : (
                     formatTime(departure)
                   )}
