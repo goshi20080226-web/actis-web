@@ -600,6 +600,7 @@ function Staff() {
 
           // 現在の列車が含まれる乗務員行路を取得
           let matchedRoster = null
+          let allCrewRosters = []
           if (effectiveDatasetId) {
             const rosterSnapshot = await get(
               ref(
@@ -610,6 +611,12 @@ function Staff() {
 
             if (rosterSnapshot.exists()) {
               const rosterValue = rosterSnapshot.val() || {}
+              allCrewRosters = Object.entries(rosterValue).map(([rosterId, roster]) => ({
+                id: rosterId,
+                ...(roster || {}),
+                items: Array.isArray(roster?.items) ? roster.items : []
+              }))
+
               for (const [rosterId, roster] of Object.entries(rosterValue)) {
                 const items = Array.isArray(roster?.items) ? roster.items : []
                 const itemIndex = items.findIndex(item =>
@@ -1047,13 +1054,69 @@ function Staff() {
   })()
 
   // 行路で指定した交代駅を、その駅の「記事」へ入れる。
-  // 前交代＝その列車で乗務を開始する駅、後交代＝乗務を終了する駅。
+  // 交代先となる別行路も探して表示する。
+  // 前交代＝その列車で乗務を開始する駅 → 前の乗務行路の「後交代」を探す。
+  // 後交代＝その列車で乗務を終了する駅 → 次の乗務行路の「前交代」を探す。
   const rosterStationRemarks = (() => {
     const result = {}
+    const currentRosterId = String(rosterInfo?.id || "")
+    const currentTrainId = String(train?.id || trainId || "")
+    const currentTrainNo = String(train?.trainNo || "").trim()
+
+    const findOtherRosterNames = (stationName, mode) => {
+      const station = String(stationName || "").trim()
+      if (!station) return []
+
+      const names = []
+      for (const roster of allCrewRosters) {
+        if (String(roster?.id || "") === currentRosterId) continue
+
+        const items = Array.isArray(roster?.items) ? roster.items : []
+        const hasMatchingExchange = items.some(item => {
+          if (item?.type !== "train") return false
+
+          const sameTrain =
+            (currentTrainId && String(item?.trainId || "") === currentTrainId) ||
+            (!item?.trainId && currentTrainNo && String(item?.trainNo || "").trim() === currentTrainNo)
+
+          if (!sameTrain) return false
+
+          if (mode === "before") {
+            return String(item?.afterChangeStation || "").trim() === station
+          }
+
+          return String(item?.beforeChangeStation || "").trim() === station
+        })
+
+        if (hasMatchingExchange) {
+          const name = String(roster?.name || "").trim()
+          if (name && !names.includes(name)) names.push(name)
+        }
+      }
+
+      return names
+    }
+
     const before = String(currentRosterItem?.beforeChangeStation || "").trim()
     const after = String(currentRosterItem?.afterChangeStation || "").trim()
-    if (before) result[before] = "乗務員交代"
-    if (after) result[after] = result[after] ? `${result[after]} / 乗務員交代` : "乗務員交代"
+
+    if (before) {
+      const names = findOtherRosterNames(before, "before")
+      result[before] = names.length
+        ? `乗務員交代（${names.join(" / ")}へ）`
+        : "乗務員交代"
+    }
+
+    if (after) {
+      const names = findOtherRosterNames(after, "after")
+      const text = names.length
+        ? `乗務員交代（${names.join(" / ")}から）`
+        : "乗務員交代"
+      result[after] = result[after]
+        ? `${result[after]} / ${text}`
+        : text
+    }
+
     return result
   })()
 
