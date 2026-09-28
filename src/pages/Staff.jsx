@@ -193,10 +193,6 @@ function applyTerminalOperations(
     )
 
 
-  /*
-   * _operationLines
-   */
-
   const lines =
     Array.isArray(train?.operationLines)
       ? train.operationLines
@@ -204,10 +200,6 @@ function applyTerminalOperations(
         ? train._operationLines
         : []
 
-
-  /*
-   * B側 → 始発
-   */
 
   lines
     .filter(
@@ -299,10 +291,6 @@ function applyTerminalOperations(
       }
     )
 
-
-  /*
-   * A側 → 終着
-   */
 
   lines
     .filter(
@@ -461,6 +449,14 @@ function Staff() {
   ] =
     useState(null)
 
+  // 乗務員行路一覧を再レンダー間で保持する。
+  // ここをローカル変数にすると、rosterStationRemarks実行時に消えてしまう。
+  const [
+    allCrewRosters,
+    setAllCrewRosters
+  ] =
+    useState([])
+
 
   useEffect(() => {
 
@@ -497,12 +493,6 @@ function Staff() {
           }
 
 
-          /*
-           * ==================================
-           * 自分の列車だけ取得
-           * ==================================
-           */
-
           let data = null
 
           if (trainId) {
@@ -518,6 +508,7 @@ function Staff() {
               data = snapshot.val()
             }
           }
+
           if (!data && trainNo) {
             const snapshot =
               await get(
@@ -558,8 +549,6 @@ function Staff() {
 
               data = candidates[0] || null
 
-              // 古い保存データで datasetId が付いていない場合でも、
-              // 同じユーザーの列車番号が一意なら列車を解決する。
               if (!data && wantedTrainNo) {
                 const fallbackCandidates = Object.entries(allTrains)
                   .map(([id, value]) => ({ id, ...(value || {}) }))
@@ -600,7 +589,8 @@ function Staff() {
 
           // 現在の列車が含まれる乗務員行路を取得
           let matchedRoster = null
-          let allCrewRosters = []
+          let loadedCrewRosters = []
+
           if (effectiveDatasetId) {
             const rosterSnapshot = await get(
               ref(
@@ -611,7 +601,8 @@ function Staff() {
 
             if (rosterSnapshot.exists()) {
               const rosterValue = rosterSnapshot.val() || {}
-              allCrewRosters = Object.entries(rosterValue).map(([rosterId, roster]) => ({
+
+              loadedCrewRosters = Object.entries(rosterValue).map(([rosterId, roster]) => ({
                 id: rosterId,
                 ...(roster || {}),
                 items: Array.isArray(roster?.items) ? roster.items : []
@@ -624,7 +615,6 @@ function Staff() {
                   String(item?.trainId || "") === String(trainId || data.id || "")
                 )
 
-                // 列車IDが保存されていない旧データ向けに列番でも照合
                 const fallbackIndex = itemIndex >= 0
                   ? itemIndex
                   : items.findIndex(item =>
@@ -649,6 +639,7 @@ function Staff() {
             return
           }
 
+          setAllCrewRosters(loadedCrewRosters)
           setRosterInfo(matchedRoster)
 
           if (
@@ -669,12 +660,6 @@ function Staff() {
 
           }
 
-
-          /*
-           * ==================================
-           * 駅
-           * ==================================
-           */
 
           const rawStations =
             Array.isArray(
@@ -735,22 +720,12 @@ function Staff() {
             )
 
 
-          /*
-           * Operationを付与
-           */
-
           stations =
             applyTerminalOperations(
               data,
               stations
             )
 
-
-          /*
-           * ==================================
-           * 運転駅のみ
-           * ==================================
-           */
 
           const operatingStations =
             stations.filter(
@@ -761,12 +736,6 @@ function Staff() {
                   "3"
             )
 
-
-          /*
-           * ==================================
-           * 表示範囲
-           * ==================================
-           */
 
           let start =
             -1
@@ -833,10 +802,6 @@ function Staff() {
           }
 
 
-          /*
-           * 始発
-           */
-
           if (
             displayStations.length >
             0
@@ -853,10 +818,6 @@ function Staff() {
 
           }
 
-
-          /*
-           * 終着
-           */
 
           if (
             displayStations.length >
@@ -882,10 +843,6 @@ function Staff() {
 
           }
 
-
-          /*
-           * 行先
-           */
 
           const finalDest =
             displayStations.length >
@@ -1033,8 +990,6 @@ function Staff() {
 
   const currentRosterItem = rosterInfo?.items?.[rosterInfo.itemIndex] || null
 
-  // 行路一覧から開いたスタフでは、次列車をOUD2の列車連結ではなく
-  // 「同じ行路で次に運転する列車」として表示する。
   const nextRosterTrainItem = (() => {
     if (!rosterInfo?.items || rosterInfo.itemIndex === undefined) return null
     for (let i = Number(rosterInfo.itemIndex) + 1; i < rosterInfo.items.length; i += 1) {
@@ -1053,10 +1008,6 @@ function Staff() {
     return null
   })()
 
-  // 行路で指定した交代駅を、その駅の「記事」へ入れる。
-  // 交代先となる別行路も探して表示する。
-  // 前交代＝その列車で乗務を開始する駅 → 前の乗務行路の「後交代」を探す。
-  // 後交代＝その列車で乗務を終了する駅 → 次の乗務行路の「前交代」を探す。
   const rosterStationRemarks = (() => {
     const result = {}
     const currentRosterId = String(rosterInfo?.id || "")
@@ -1068,6 +1019,7 @@ function Staff() {
       if (!station) return []
 
       const names = []
+
       for (const roster of allCrewRosters) {
         if (String(roster?.id || "") === currentRosterId) continue
 
