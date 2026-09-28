@@ -22,9 +22,7 @@ import {
   database
 } from "../firebase/config"
 
-
-const AUTH_WORKER_ORIGIN =
-  "https://actis-auth-worker.goshi20080226.workers.dev"
+import "./Account.css"
 
 
 function Account() {
@@ -159,40 +157,13 @@ function Account() {
   }
 
 
-  const startLink = provider => {
-
-    if (!user) return
-
-    setError("")
-    setMessage(`${providerLabel(provider)}の連携を開始します。`)
-
-    const params = new URLSearchParams({
-      uid: user.uid,
-      mode: "link"
-    })
-
-    window.location.href =
-      `${AUTH_WORKER_ORIGIN}/auth/link/${provider}?${params.toString()}`
-
-  }
-
-
-  const providerLabel = provider => {
-
-    if (provider === "google") return "Google"
-    if (provider === "discord") return "Discord"
-    if (provider === "roblox") return "Roblox"
-    return provider
-
-  }
-
-
   if (loading) {
 
     return (
-      <div>
-        <h1>アカウント設定</h1>
-        <p>読み込み中...</p>
+      <div className="account-page">
+        <div className="account-loading">
+          読み込み中...
+        </div>
       </div>
     )
 
@@ -215,143 +186,145 @@ function Account() {
         profile?.discord?.globalName ||
         profile?.discord?.username ||
         "Discordアカウント"
-    },
-    roblox: {
-      name: "Roblox",
-      value:
-        profile?.roblox?.displayName ||
-        profile?.roblox?.username ||
-        "Robloxアカウント"
     }
   }
 
   return (
     <div className="account-page">
 
-      <div className="account-header">
+      <header className="account-page-header">
         <div>
+          <p className="account-eyebrow">ACCOUNT</p>
           <h1>アカウント設定</h1>
-          <p>ACTISアカウントを管理します。</p>
+          <p className="account-description">
+            ACTISアカウントの基本情報とログイン連携を管理します。
+          </p>
         </div>
 
         <button
           type="button"
+          className="account-back-button"
           onClick={() => navigate("/")}
         >
           戻る
         </button>
-      </div>
+      </header>
 
-      <div className="account-card">
 
-        <h2>ACTISアカウント</h2>
+      <main className="account-sections">
 
-        <div className="account-row">
-          <div className="account-label">
-            ACTISアカウントID
-          </div>
-          <div className="account-value">
-            {user.uid}
-          </div>
-        </div>
-
-        <div className="account-row">
-          <div className="account-label">
-            表示名
-          </div>
-
-          <div className="account-value account-edit">
-            <input
-              type="text"
-              value={displayName}
-              onChange={event => setDisplayName(event.target.value)}
-              maxLength={50}
-              disabled={saving}
-            />
-
-            <button
-              type="button"
-              onClick={saveProfile}
-              disabled={saving}
-            >
-              {saving ? "保存中..." : "保存"}
-            </button>
-          </div>
-        </div>
-
-      </div>
-
-      <div className="account-card">
-
-        <h2>アカウント連携</h2>
-
-        <p>
-          Google・Discord・Robloxを同じACTISアカウントへ連携できます。
-        </p>
-
-        {Object.entries(providerInfo).map(([provider, info]) => {
-
-          const connected = providers.includes(provider)
-
-          return (
-            <div
-              className="account-provider"
-              key={provider}
-            >
-
-              <div>
-                <strong>{info.name}</strong>
-                <p>{connected ? info.value : `${info.name}アカウント未連携`}</p>
-              </div>
-
-              <div>
-                <span
-                  className={
-                    connected
-                      ? "provider-connected"
-                      : "provider-disabled"
-                  }
-                >
-                  {connected ? "連携済み" : "未連携"}
-                </span>
-
-                {!connected && (
-                  <button
-                    type="button"
-                    onClick={() => startLink(provider)}
-                  >
-                    {info.name}を連携
-                  </button>
-                )}
-              </div>
-
+        <section className="account-section">
+          <div className="account-section-header">
+            <div>
+              <h2>基本情報</h2>
+              <p>ACTISで表示する名前を設定します。</p>
             </div>
-          )
+          </div>
 
-        })}
+          <div className="account-form">
 
-      </div>
+            <label className="account-field">
+              <span>表示名</span>
+              <div className="account-field-row">
+                <input
+                  type="text"
+                  value={displayName}
+                  onChange={event => setDisplayName(event.target.value)}
+                  maxLength={50}
+                  disabled={saving}
+                  placeholder="表示名を入力"
+                />
 
-      <div className="account-card account-danger">
+                <button
+                  type="button"
+                  onClick={saveProfile}
+                  disabled={saving}
+                >
+                  {saving ? "保存中..." : "保存"}
+                </button>
+              </div>
+            </label>
 
-        <h2>セッション</h2>
+            <div className="account-id">
+              <span>ACTISアカウントID</span>
+              <code>{user.uid}</code>
+            </div>
 
-        <button
-          type="button"
-          onClick={logout}
-        >
-          ログアウト
-        </button>
+          </div>
+        </section>
 
-      </div>
 
-      {message && (
-        <p className="account-message">{message}</p>
-      )}
+        <section className="account-section">
+          <div className="account-section-header">
+            <div>
+              <h2>ログイン連携</h2>
+              <p>ACTISアカウントに接続されているサービスを確認できます。</p>
+            </div>
+          </div>
 
-      {error && (
-        <p className="account-error">{error}</p>
-      )}
+          <div className="account-provider-list">
+
+            {Object.entries(providerInfo).map(([provider, info]) => {
+
+              const connected = providers.includes(provider)
+
+              return (
+                <div
+                  className="account-provider"
+                  key={provider}
+                >
+                  <div className="account-provider-main">
+                    <strong>{info.name}</strong>
+                    <span>
+                      {connected
+                        ? info.value
+                        : `${info.name}アカウント未連携`}
+                    </span>
+                  </div>
+
+                  <span
+                    className={
+                      connected
+                        ? "account-provider-status connected"
+                        : "account-provider-status"
+                    }
+                  >
+                    {connected ? "連携済み" : "未連携"}
+                  </span>
+                </div>
+              )
+
+            })}
+
+          </div>
+        </section>
+
+
+        <section className="account-section account-session-section">
+          <div className="account-section-header">
+            <div>
+              <h2>セッション</h2>
+              <p>現在のACTISアカウントからログアウトします。</p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            className="account-logout-button"
+            onClick={logout}
+          >
+            ログアウト
+          </button>
+        </section>
+
+
+        {(message || error) && (
+          <div className={error ? "account-alert error" : "account-alert"}>
+            {error || message}
+          </div>
+        )}
+
+      </main>
 
     </div>
   )
