@@ -95,7 +95,182 @@ const nextMessage=(t,n)=>{
   return"停車駅は、"+stopNames.join("、")+"です";
 }
 
+
 export default function DepartureBoard(){
- const {selectedDatasetId}=useDataset(),[lines,setLines]=useState([]),[trains,setTrains]=useState([]),[station,setStation]=useState(""),[dir,setDir]=useState("ALL"),[led,setLed]=useState("full"),[cars,setCars]=useState(true),[virtual,setVirtual]=useState(""),[now,setNow]=useState(new Date()),[loading,setLoading]=useState(true),[error,setError]=useState("")
- useEffect(()=>{let stop=false;(async()=>{try{const u=await userReady();if(!u){setError("ACTISアカウントにログインしてください。");return}const[a,b]=await Promise.all([get(ref(database,`users/${u.uid}/lines`)),get(ref(database,`users/${u.uid}/trains`))]);const ls=a.exists()?a.val():{},ts=b.exists()?b.val():{};if(stop)return;setLines(Object.entries(ls).map(([id,v])=>({id,...v})).filter(x=>!selectedDatasetId||String(x.datasetId)===String(selectedDatasetId)));setTrains(Object.entries(ts).map(([id,v])=>({id,...v})).filter(x=>!selectedDatasetId||String(x.datasetId)===String(selectedDatasetId)))}catch(e){if(!stop)setError("発車標データを取得できませんでした："+e.message)}finally{if(!stop)setLoading(false)}})();return()=>{stop=true}},[selectedDatasetId])
- useEffect(()=>{const i=setInterval(()=>setNow(new Date()),1000);return()=>clearInterval(i)},[])
+  const {selectedDatasetId}=useDataset()
+  const [lines,setLines]=useState([])
+  const [trains,setTrains]=useState([])
+  const [station,setStation]=useState("")
+  const [dir,setDir]=useState("ALL")
+  const [led,setLed]=useState("full")
+  const [cars,setCars]=useState(true)
+  const [virtual,setVirtual]=useState("")
+  const [now,setNow]=useState(new Date())
+  const [loading,setLoading]=useState(true)
+  const [error,setError]=useState("")
+
+  useEffect(()=>{
+    let stop=false
+    ;(async()=>{
+      try{
+        const u=await userReady()
+        if(!u){
+          setError("ACTISアカウントにログインしてください。")
+          return
+        }
+        const [a,b]=await Promise.all([
+          get(ref(database,"users/"+u.uid+"/lines")),
+          get(ref(database,"users/"+u.uid+"/trains"))
+        ])
+        const ls=a.exists()?a.val():{}
+        const ts=b.exists()?b.val():{}
+        if(stop)return
+        setLines(Object.entries(ls).map(([id,v])=>({id,...v})).filter(x=>!selectedDatasetId||String(x.datasetId)===String(selectedDatasetId)))
+        setTrains(Object.entries(ts).map(([id,v])=>({id,...v})).filter(x=>!selectedDatasetId||String(x.datasetId)===String(selectedDatasetId)))
+      }catch(e){
+        if(!stop)setError("発車標データを取得できませんでした："+e.message)
+      }finally{
+        if(!stop)setLoading(false)
+      }
+    })()
+    return()=>{stop=true}
+  },[selectedDatasetId])
+
+  useEffect(()=>{
+    const i=setInterval(()=>setNow(new Date()),1000)
+    return()=>clearInterval(i)
+  },[])
+
+  const time=useMemo(()=>{
+    if(!virtual)return now
+    const parts=virtual.split(":").map(Number)
+    const d=new Date(now)
+    d.setHours(parts[0]||0,parts[1]||0,parts[2]||0,0)
+    return d
+  },[now,virtual])
+
+  const nowSec=time.getHours()*3600+time.getMinutes()*60+time.getSeconds()
+
+  const stations=useMemo(()=>{
+    const result=[],seen=new Set()
+    lines.forEach(l=>(l.stations||[]).forEach(s=>{
+      const n=s?.name
+      if(n&&!seen.has(n)){
+        seen.add(n)
+        result.push(n)
+      }
+    }))
+    return result
+  },[lines])
+
+  useEffect(()=>{
+    if(!station&&stations[0])setStation(stations[0])
+    else if(station&&!stations.includes(station))setStation(stations[0]||"")
+  },[stations,station])
+
+  const upcoming=useMemo(()=>trains
+    .filter(t=>dir==="ALL"||t.direction===dir)
+    .map(t=>{
+      const s=stationOf(t,station)
+      if(!s||s.isPass||String(s.stopType??"1")==="2")return null
+      const raw=s.departure||s.single
+      const n=sec(raw)
+      if(n<0)return null
+      let actual=n
+      while(actual-nowSec<-5)actual+=86400
+      return{
+        id:t.id||t.trainNo,
+        t,
+        type:t.type||t.typeShort||"普通",
+        time:fmt(raw),
+        actual,
+        diff:actual-nowSec,
+        dest:destination(t),
+        track:s.track||s.trackName||"",
+        cars:t.cars||t.carCount||t.carsCount||"",
+        msg:nextMessage(t,station),
+        color:typeColor(t,led==="3color")
+      }
+    })
+    .filter(Boolean)
+    .sort((a,b)=>a.actual-b.actual),
+    [trains,dir,station,nowSec,led]
+  )
+
+  useEffect(()=>{
+    const update=()=>{
+      document.querySelectorAll(".departure-message").forEach(el=>{
+        const track=el.querySelector(".departure-message-track")
+        if(!track)return
+        el.classList.remove("is-scrolling")
+        el.style.removeProperty("--message-distance")
+        el.style.removeProperty("--message-duration")
+        const distance=track.scrollWidth-el.clientWidth
+        if(distance<=1)return
+        el.style.setProperty("--message-distance",Math.ceil(distance)+"px")
+        const duration=Math.max(7.5,(distance/55)+0.3)
+        el.style.setProperty("--message-duration",duration+"s")
+        el.classList.add("is-scrolling")
+      })
+    }
+    const id=requestAnimationFrame(update)
+    const onResize=()=>requestAnimationFrame(update)
+    window.addEventListener("resize",onResize)
+    return()=>{
+      cancelAnimationFrame(id)
+      window.removeEventListener("resize",onResize)
+    }
+  },[upcoming,cars])
+
+  const groups=dir==="ALL"
+    ?[["Nobori","上り"],["Kudari","下り"]]
+    :[[dir,dir==="Nobori"?"上り":"下り"]]
+
+  if(loading)return<><DatasetSelector/><h1>駅発車標</h1><p>読み込み中...</p></>
+  if(error)return<><DatasetSelector/><h1>駅発車標</h1><p>{error}</p></>
+
+  return<div className="departure-board-page">
+    <DatasetSelector/>
+    <div className="departure-controls">
+      <label>駅 <select value={station} onChange={e=>setStation(e.target.value)}>{stations.map(x=><option key={x}>{x}</option>)}</select></label>
+      <label>方面 <select value={dir} onChange={e=>setDir(e.target.value)}>
+        <option value="ALL">すべて</option>
+        <option value="Nobori">上り</option>
+        <option value="Kudari">下り</option>
+      </select></label>
+      <label>表示 <select value={led} onChange={e=>setLed(e.target.value)}>
+        <option value="full">フルカラー</option>
+        <option value="3color">3色LED</option>
+      </select></label>
+      <label><input type="checkbox" checked={cars} onChange={e=>setCars(e.target.checked)}/> 両数</label>
+      <label>仮想時刻 <input type="time" step="1" value={virtual} onChange={e=>setVirtual(e.target.value)}/></label>
+      <button onClick={()=>setVirtual("")}>解除</button>
+    </div>
+
+    <div className="departure-board">
+      <div className="departure-clock">
+        {String(time.getHours()).padStart(2,"0")}:{String(time.getMinutes()).padStart(2,"0")}:{String(time.getSeconds()).padStart(2,"0")}
+      </div>
+      {groups.map(([key,title])=>{
+        const rows=upcoming.filter(x=>x.t.direction===key).slice(0,3)
+        return<section key={key}>
+          <h2>{dir==="ALL"?title:""}</h2>
+          <div className={"departure-head "+(cars?"cars":"")}>
+            <span>種別</span><span>発時刻</span><span>行先</span>
+            {cars&&<span>両数</span>}
+            <span>のりば</span><span>ご案内</span>
+          </div>
+          {rows.map(x=><div className={"departure-row "+(cars?"cars ":"")+(x.diff<=5&&x.diff>=-5?"blink":"")} key={x.id}>
+            <b style={{color:"#fff",backgroundColor:x.color,borderColor:x.color}}>{x.type}</b>
+            <strong>{x.time}</strong>
+            <span>{x.dest}</span>
+            {cars&&<span>{x.t.cars||x.t.carCount||"—"}</span>}
+            <span>{x.track||"—"}</span>
+            <span className="departure-message"><span className="departure-message-track">{x.msg}</span></span>
+          </div>)}
+          {Array.from({length:3-rows.length},(_,i)=><div className={"departure-row blank "+(cars?"cars":"")} key={i}/>)}
+        </section>
+      })}
+    </div>
+  </div>
+}
