@@ -1,4 +1,5 @@
 import {
+import "./Staff.css"
   useEffect,
   useMemo,
   useState
