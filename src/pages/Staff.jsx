@@ -1,6 +1,6 @@
-import {
 import "./Staff.css"
-  useEffect,
+
+import {  useEffect,
   useState
 } from "react"
 
