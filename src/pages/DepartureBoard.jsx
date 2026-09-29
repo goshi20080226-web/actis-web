@@ -103,6 +103,28 @@ export default function DepartureBoard(){
  const nowSec=time.getHours()*3600+time.getMinutes()*60+time.getSeconds()
  const stations=useMemo(()=>{const r=[],seen=new Set();lines.forEach(l=>(l.stations||[]).forEach(s=>{const n=s?.name;if(n&&!seen.has(n)){seen.add(n);r.push(n)}}));return r},[lines])
  useEffect(()=>{if(!station&&stations[0])setStation(stations[0]);else if(station&&!stations.includes(station))setStation(stations[0]||"")},[stations,station])
+ useEffect(()=>{
+  const updateMessageScroll=()=>{
+    document.querySelectorAll(".departure-message").forEach(el=>{
+      const track=el.querySelector(".departure-message-track");
+      if(!track)return;
+      el.classList.remove("is-scrolling");
+      el.style.removeProperty("--message-distance");
+      el.style.removeProperty("--message-duration");
+      const distance=track.scrollWidth-el.clientWidth;
+      if(distance<=1)return;
+      el.style.setProperty("--message-distance",Math.ceil(distance)+"px");
+      const duration=Math.max(3,(distance/55)+0.3);
+      el.style.setProperty("--message-duration",duration+"s");
+      el.classList.add("is-scrolling");
+    });
+  };
+  const id=requestAnimationFrame(updateMessageScroll);
+  const onResize=()=>requestAnimationFrame(updateMessageScroll);
+  window.addEventListener("resize",onResize);
+  return()=>{cancelAnimationFrame(id);window.removeEventListener("resize",onResize)};
+ },[upcoming,cars,station,dir]);
+
  const upcoming=useMemo(()=>trains.filter(t=>dir==="ALL"||t.direction===dir).map(t=>{const s=stationOf(t,station);if(!s||s.isPass||String(s.stopType??"1")==="2")return null;const raw=s.departure||s.single,n=sec(raw);if(n<0)return null;let actual=n;while(actual-nowSec<-5)actual+=86400;return{id:t.id||t.trainNo,t,type:t.type||t.typeShort||"普通",time:fmt(raw),actual,diff:actual-nowSec,dest:destination(t),track:s.track||s.trackName||"",cars:t.cars||t.carCount||t.carsCount||"" ,msg:nextMessage(t,station),color:typeColor(t,led==="3color")}}).filter(Boolean).sort((a,b)=>a.actual-b.actual),[trains,dir,station,nowSec,led])
  const groups=dir==="ALL"?[["Nobori","上り"],["Kudari","下り"]]:[[dir,dir==="Nobori"?"上り":"下り"]]
  if(loading)return <><DatasetSelector/><h1>駅発車標</h1><p>読み込み中...</p></>
