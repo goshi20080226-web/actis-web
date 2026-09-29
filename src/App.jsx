@@ -1,5 +1,4 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom"
-import "./App.css"
 import Upload from "./pages/Upload"
 import Header from "./components/Header"
 import Sidebar from "./components/Sidebar"
