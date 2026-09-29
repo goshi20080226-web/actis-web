@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
+import "./Staff.css"
 import { ref, get } from "firebase/database"
 import { onAuthStateChanged } from "firebase/auth"
 import { Link, useParams } from "react-router-dom"
