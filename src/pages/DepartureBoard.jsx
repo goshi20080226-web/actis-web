@@ -220,7 +220,7 @@ export default function DepartureBoard(){
       cancelAnimationFrame(id)
       window.removeEventListener("resize",onResize)
     }
-  },[upcoming,cars])
+  },[trains,cars,station,dir])
 
   const groups=dir==="ALL"
     ?[["Nobori","上り"],["Kudari","下り"]]
