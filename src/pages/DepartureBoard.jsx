@@ -204,10 +204,15 @@ export default function DepartureBoard(){
         if(!track)return
         el.classList.remove("is-scrolling")
         el.style.removeProperty("--message-distance")
+        el.style.removeProperty("--message-start")
+        el.style.removeProperty("--message-end")
         el.style.removeProperty("--message-duration")
-        const distance=track.scrollWidth-el.clientWidth
-        if(distance<=1)return
-        el.style.setProperty("--message-distance",Math.ceil(distance)+"px")
+        const trackWidth=track.scrollWidth
+        const boxWidth=el.clientWidth
+        const distance=trackWidth+boxWidth
+        if(trackWidth<=boxWidth+1)return
+        el.style.setProperty("--message-start",boxWidth+"px")
+        el.style.setProperty("--message-end",-trackWidth+"px")
         const duration=Math.max(7.5,(distance/55)+0.3)
         el.style.setProperty("--message-duration",duration+"s")
         el.classList.add("is-scrolling")
