@@ -114,7 +114,7 @@ export default function DepartureBoard(){
       const distance=track.scrollWidth-el.clientWidth;
       if(distance<=1)return;
       el.style.setProperty("--message-distance",Math.ceil(distance)+"px");
-      const duration=Math.max(3,(distance/55)+0.3);
+      const duration=Math.max(7.5,(distance/55)+0.3);
       el.style.setProperty("--message-duration",duration+"s");
       el.classList.add("is-scrolling");
     });
