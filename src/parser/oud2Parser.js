@@ -243,7 +243,7 @@ function parseOud2(text, fileName = "") {
       if (key === "Houkou") { currentTrain.direction = value; continue }
       if (key === "Syubetsu") { currentTrain.typeIndex = Number(value); continue }
       if (key === "Ressyabangou") { currentTrain.trainNo = value; continue }
-      if (key === "EkiJikoku") { currentTrain.timeRaw = value; const ekiJikoku = parseEkiJikoku(value); currentTrain.rawTimes = ekiJikoku; currentTrain.stations = createStationTimes(result.stations, ekiJikoku, section, currentTrain.operationRemarks); continue }
+      if (key === "EkiJikoku") { currentTrain.timeRaw = value; const ekiJikoku = parseEkiJikoku(value); currentTrain.rawTimes = ekiJikoku; currentTrain.stopGuide = ekiJikoku.map((raw, index) => { const stationIndex = section === "Nobori" ? result.stations.length - 1 - index : index; const station = result.stations[stationIndex]; return { name: station?.name || "", timeName: station?.timeName || "", stopType: raw?.stopType ?? "1", isPass: raw?.isPass === true, arrival: raw?.arrival || "", departure: raw?.departure || "", single: raw?.single || "" } }).filter(item => item.name); currentTrain.stations = createStationTimes(result.stations, ekiJikoku, section, currentTrain.operationRemarks); continue }
     }
   }
 
