@@ -46,6 +46,7 @@ function App() {
               <Route path="/lines" element={<AuthGuard><Lines /></AuthGuard>} />
               <Route path="/admin" element={<AdminGuard><Admin /></AdminGuard>} />
               <Route path="/privacy" element={<Privacy />} />
+              <Route path="/privacy/" element={<Privacy />} />
             </Routes>
           </main>
 
