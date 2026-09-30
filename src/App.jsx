@@ -13,6 +13,7 @@ import Login from "./pages/Login"
 import Staff from "./pages/Staff"
 import StaffOperation from "./pages/StaffOperation"
 import AuthGuard from "./components/AuthGuard"
+import AdminGuard from "./components/AdminGuard"
 import Datasets from "./pages/Datasets"
 import Account from "./pages/Account"
 import { DatasetProvider } from "./context/DatasetContext"
@@ -89,9 +90,9 @@ function App() {
               element={<AuthGuard><Lines /></AuthGuard>}
             />
 
-            <Route 
+            <Route
               path="/admin"
-              element={<AuthGuard><Admin /></AuthGuard>}
+              element={<AdminGuard><Admin /></AdminGuard>}
             />
 
           </Routes>
