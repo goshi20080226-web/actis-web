@@ -55,7 +55,7 @@ function base64UrlEncodeBytes(
 
     .replace(
 
-      /\\+/g,
+      /\+/g,
 
       "-"
 
@@ -63,7 +63,7 @@ function base64UrlEncodeBytes(
 
     .replace(
 
-      /\\//g,
+      /\//g,
 
       "_"
 
@@ -161,7 +161,7 @@ function pemToArrayBuffer(
 
     value.replace(
 
-      /\\\n/g,
+      /\\n/g,
 
       "\n"
 
@@ -209,7 +209,7 @@ function pemToArrayBuffer(
 
     value.match(
 
-      /-----BEGIN PRIVATE KEY-----([\s\S]\*?)-----END PRIVATE KEY-----/
+      /-----BEGIN PRIVATE KEY-----([\s\S]*?)-----END PRIVATE KEY-----/
 
     )
 
@@ -404,6 +404,123 @@ function pemToArrayBuffer(
 
 
 
+
+async function getFirebaseUserFromIdToken(idToken, env) {
+  const apiKey = String(env.FIREBASE_API_KEY || "").trim()
+  if (!apiKey) throw new Error("FIREBASE_API_KEY が設定されていません")
+  const response = await fetch(
+    `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${encodeURIComponent(apiKey)}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ idToken })
+    }
+  )
+  const data = await response.json().catch(() => ({}))
+  if (!response.ok || !Array.isArray(data.users) || !data.users[0]?.localId) {
+    throw new Error("Firebase ID tokenを確認できませんでした")
+  }
+  return data.users[0]
+}
+
+function jsonResponse(body, status, env) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: {
+      "Content-Type": "application/json; charset=UTF-8",
+      "Access-Control-Allow-Origin": String(env.ACTIS_ORIGIN || "*"),
+      "Access-Control-Allow-Headers": "Authorization, Content-Type",
+      "Access-Control-Allow-Methods": "GET, OPTIONS"
+    }
+  })
+}
+
+async function startProviderLink(request, env, provider) {
+  const authorization = request.headers.get("Authorization") || ""
+  const match = authorization.match(/^Bearer\s+(.+)$/i)
+  if (!match) return jsonResponse({ error: "認証情報がありません" }, 401, env)
+
+  let firebaseUser
+  try {
+    firebaseUser = await getFirebaseUserFromIdToken(match[1], env)
+  } catch (error) {
+    return jsonResponse({ error: error.message }, 401, env)
+  }
+
+  const accountId = String(firebaseUser.localId || "").trim()
+  if (!accountId) return jsonResponse({ error: "ACTISアカウントIDを取得できませんでした" }, 401, env)
+
+  const state = crypto.randomUUID()
+  await env.AUTH_KV.put(
+    `oauth-state:link:${provider}:${state}`,
+    JSON.stringify({ accountId, provider }),
+    { expirationTtl: 600 }
+  )
+
+  const params = new URLSearchParams()
+  let target
+
+  if (provider === "discord") {
+    const clientId = String(env.DISCORD_CLIENT_ID || "").trim()
+    const redirectUri = String(env.DISCORD_REDIRECT_URI || "").trim()
+    if (!clientId || !redirectUri) return jsonResponse({ error: "Discord OAuth設定が不足しています" }, 500, env)
+    params.set("client_id", clientId)
+    params.set("response_type", "code")
+    params.set("redirect_uri", redirectUri)
+    params.set("scope", "identify email")
+    params.set("state", state)
+    target = "https://discord.com/oauth2/authorize?" + params.toString()
+  } else if (provider === "google") {
+    const clientId = String(env.GOOGLE_CLIENT_ID || "").trim()
+    const redirectUri = String(env.GOOGLE_REDIRECT_URI || "").trim()
+    if (!clientId || !redirectUri) return jsonResponse({ error: "Google OAuth設定が不足しています" }, 500, env)
+    params.set("client_id", clientId)
+    params.set("redirect_uri", redirectUri)
+    params.set("response_type", "code")
+    params.set("scope", "openid email profile")
+    params.set("state", state)
+    target = "https://accounts.google.com/o/oauth2/v2/auth?" + params.toString()
+  } else {
+    return jsonResponse({ error: "未対応のプロバイダです" }, 400, env)
+  }
+
+  return jsonResponse({ url: target }, 200, env)
+}
+
+async function getLinkState(env, provider, state) {
+  if (!state) return null
+  const key = `oauth-state:link:${provider}:${state}`
+  const value = await env.AUTH_KV.get(key)
+  if (!value) return null
+  await env.AUTH_KV.delete(key)
+  try { return JSON.parse(value) } catch { return null }
+}
+
+function linkSuccessRedirect(env, provider, user, email) {
+  const params = new URLSearchParams()
+  params.set("link", "success")
+  params.set("provider", provider)
+  if (provider === "discord") {
+    params.set("discord_id", user.id || "")
+    params.set("username", user.username || "")
+    params.set("global_name", user.global_name || "")
+    params.set("avatar", user.avatar || "")
+  } else {
+    params.set("google_id", user.sub || "")
+    params.set("username", user.name || "")
+    params.set("global_name", user.name || "")
+    params.set("avatar", user.picture || "")
+  }
+  if (email) params.set("email", email)
+  return Response.redirect(`${env.ACTIS_ORIGIN}/account?${params.toString()}`, 302)
+}
+
+function linkErrorRedirect(env, message) {
+  return Response.redirect(
+    `${env.ACTIS_ORIGIN}/account?link=error&message=${encodeURIComponent(message)}`,
+    302
+  )
+}
 
 async function createFirebaseCustomToken(
 
@@ -1972,6 +2089,18 @@ async function discordCallback(
 
 
 
+  if (linkState) {
+    const existingAccountId = await findAccountByIdentity(env, "discord", user.id)
+    if (existingAccountId && existingAccountId !== linkState.accountId) {
+      return linkErrorRedirect(env, "このDiscordアカウントは別のACTISアカウントに連携されています")
+    }
+    await saveIdentity(env, "discord", user.id, linkState.accountId)
+    if (email) {
+      await env.AUTH_KV.put(`account-email:discord:${user.id}`, String(email).trim().toLowerCase())
+    }
+    return linkSuccessRedirect(env, "discord", user, email)
+  }
+
   const accountId =
 
     await getOrCreateAccount(
@@ -2249,67 +2378,21 @@ async function googleCallback(
 
 
 
-  const stateKey =
+  const linkState = await getLinkState(env, "google", state)
 
-    `oauth-state:google:${state}`
+  if (!linkState) {
+    const stateKey = `oauth-state:google:${state}`
+    const validState = await env.AUTH_KV.get(stateKey)
 
+    if (!validState) {
+      return Response.redirect(
+        `${env.ACTIS_ORIGIN}/login#error=Google認証状態が無効です`,
+        302
+      )
+    }
 
-
-
-
-  const validState =
-
-    await env.AUTH_KV.get(
-
-      stateKey
-
-    )
-
-
-
-
-
-  if (!validState) {
-
-
-
-    return Response.redirect(
-
-
-
-      `${env.ACTIS_ORIGIN}/login#error=Google認証状態が無効です`,
-
-
-
-      302
-
-
-
-    )
-
-
-
+    await env.AUTH_KV.delete(stateKey)
   }
-
-
-
-
-
-
-
-
-  await env.AUTH_KV.delete(
-
-    stateKey
-
-  )
-
-
-
-
-
-
-
 
   const clientId =
 
@@ -2813,6 +2896,19 @@ async function googleCallback(
 
 
 
+  if (linkState) {
+    const existingAccountId = await findAccountByIdentity(env, "google", user.sub)
+    if (existingAccountId && existingAccountId !== linkState.accountId) {
+      return linkErrorRedirect(env, "このGoogleアカウントは別のACTISアカウントに連携されています")
+    }
+    await saveIdentity(env, "google", user.sub, linkState.accountId)
+    await env.AUTH_KV.put(
+      `account-email:google:${user.sub}`,
+      String(user.email).trim().toLowerCase()
+    )
+    return linkSuccessRedirect(env, "google", user, user.email)
+  }
+
   const accountId =
 
     await getOrCreateAccount(
@@ -3029,6 +3125,17 @@ export default {
 
 
 
+    if (request.method === "OPTIONS") {
+      return new Response(null, {
+        status: 204,
+        headers: {
+          "Access-Control-Allow-Origin": String(env.ACTIS_ORIGIN || "*"),
+          "Access-Control-Allow-Headers": "Authorization, Content-Type",
+          "Access-Control-Allow-Methods": "GET, OPTIONS"
+        }
+      })
+    }
+
     if (
 
       url.pathname === "/" &&
@@ -3218,4 +3325,12 @@ export default {
 
 
 
-}
+}    if (url.pathname === "/auth/link/discord" && request.method === "GET") {
+      return startProviderLink(request, env, "discord")
+    }
+
+    if (url.pathname === "/auth/link/google" && request.method === "GET") {
+      return startProviderLink(request, env, "google")
+    }
+
+
