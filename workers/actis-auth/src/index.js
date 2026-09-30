@@ -3299,6 +3299,14 @@ export default {
 
 
 
+    if (url.pathname === "/auth/link/discord" && request.method === "GET") {
+      return startProviderLink(request, env, "discord")
+    }
+
+    if (url.pathname === "/auth/link/google" && request.method === "GET") {
+      return startProviderLink(request, env, "google")
+    }
+
     return new Response(
 
       "Not Found",
@@ -3325,12 +3333,5 @@ export default {
 
 
 
-}    if (url.pathname === "/auth/link/discord" && request.method === "GET") {
-      return startProviderLink(request, env, "discord")
-    }
-
-    if (url.pathname === "/auth/link/google" && request.method === "GET") {
-      return startProviderLink(request, env, "google")
-    }
-
+}
 
