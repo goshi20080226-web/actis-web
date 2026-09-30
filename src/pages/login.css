@@ -1,0 +1,151 @@
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: #f4f7f9;
+}
+
+.login-card {
+  width: min(100%, 440px);
+  padding: 32px;
+  border: 1px solid #d8e0e6;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 12px 35px rgba(16, 24, 32, 0.08);
+}
+
+.login-card h1 {
+  margin: 0;
+  color: #101820;
+  font-size: 32px;
+}
+
+.login-card > p {
+  color: #687782;
+}
+
+.login-provider-button,
+.login-email-submit {
+  width: 100%;
+  min-height: 44px;
+  border: 0;
+  border-radius: 7px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.login-provider-button {
+  margin-top: 10px;
+}
+
+.discord-login-button {
+  background: #5865f2;
+  color: #ffffff;
+}
+
+.google-login-button {
+  border: 1px solid #d8e0e6;
+  background: #ffffff;
+  color: #17202a;
+}
+
+.login-divider {
+  margin: 20px 0 14px;
+  color: #8a969d;
+  font-size: 12px;
+  text-align: center;
+}
+
+.login-email-form {
+  display: grid;
+  gap: 12px;
+}
+
+.login-email-form h2 {
+  margin: 0 0 2px;
+  color: #17202a;
+  font-size: 16px;
+}
+
+.login-email-form label {
+  display: grid;
+  gap: 5px;
+}
+
+.login-email-form label span {
+  color: #52616d;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.login-email-form input {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 42px;
+  padding: 9px 11px;
+  border: 1px solid #cbd5dc;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #17202a;
+  outline: none;
+}
+
+.login-email-form input:focus {
+  border-color: #1f8a70;
+}
+
+.login-email-submit {
+  margin-top: 4px;
+  background: #101820;
+  color: #ffffff;
+}
+
+.login-email-actions {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin-top: 12px;
+}
+
+.login-email-actions button {
+  border: 0;
+  padding: 3px;
+  background: transparent;
+  color: #176d59;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.login-message {
+  margin: 14px 0 0 !important;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: #eef7f3;
+  color: #176d59 !important;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.login-error {
+  margin-top: 14px;
+}
+
+button:disabled,
+input:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+@media (max-width: 520px) {
+  .login-page {
+    padding: 14px;
+  }
+
+  .login-card {
+    padding: 24px 18px;
+  }
+}
