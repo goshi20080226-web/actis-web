@@ -930,30 +930,18 @@ textarea:focus {
 
 /* =========================================================
    Footer / privacy policy
-   Keep the footer visible at the bottom of the viewport.
 ========================================================= */
 
-.app-root {
-  padding-bottom: 61px;
-}
-
 .privacy-footer {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 500;
   width: 100%;
-  min-height: 61px;
-  padding: 20px 36px;
+  margin-top: 32px;
+  padding: 18px 0 4px;
   border-top: 1px solid #dfe5e9;
-  background: #f7f9fa;
-  box-shadow: 0 -2px 8px rgba(16, 24, 32, .06);
+  background: #ffffff;
 }
 
 .privacy-footer-inner {
-  max-width: 1200px;
-  margin: 0 auto;
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -978,7 +966,8 @@ textarea:focus {
 
 @media (max-width: 760px) {
   .privacy-footer {
-    padding: 18px 14px;
+    margin-top: 24px;
+    padding: 16px 0 2px;
   }
 
   .privacy-footer-inner {
