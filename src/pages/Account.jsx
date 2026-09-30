@@ -24,6 +24,8 @@ import {
 
 import "./Account.css"
 
+const WORKER_URL = "https://actis-auth.goshi20080226.workers.dev"
+
 
 function Account() {
 
@@ -34,6 +36,7 @@ function Account() {
   const [displayName, setDisplayName] = useState("")
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [linking, setLinking] = useState("")
   const [message, setMessage] = useState("")
   const [error, setError] = useState("")
 
@@ -66,12 +69,56 @@ function Account() {
         setProfile(data)
 
         setDisplayName(
-          data.displayName ||
           data.discord?.globalName ||
           data.discord?.username ||
           data.google?.name ||
+          data.displayName ||
           ""
         )
+
+        const query = new URLSearchParams(window.location.search)
+        const linkStatus = query.get("link")
+        const linkedProvider = query.get("provider")
+
+        if (linkStatus === "success" && (linkedProvider === "discord" || linkedProvider === "google")) {
+          const nextProviders = Array.isArray(data.providers) ? [...data.providers] : []
+          if (!nextProviders.includes(linkedProvider)) nextProviders.push(linkedProvider)
+
+          const nextProfile = {
+            ...data,
+            providers: nextProviders,
+            updatedAt: Date.now()
+          }
+
+          if (linkedProvider === "discord") {
+            nextProfile.discord = {
+              id: query.get("discord_id") || "",
+              username: query.get("username") || "",
+              globalName: query.get("global_name") || "",
+              avatar: query.get("avatar") || "",
+              email: query.get("email") || ""
+            }
+          } else {
+            nextProfile.google = {
+              id: query.get("google_id") || "",
+              name: query.get("global_name") || query.get("username") || "",
+              avatar: query.get("avatar") || "",
+              email: query.get("email") || ""
+            }
+          }
+
+          await update(
+            ref(database, `users/${currentUser.uid}/profile`),
+            nextProfile
+          )
+
+          setProfile(nextProfile)
+          window.history.replaceState(null, "", "/account")
+          setMessage(`${linkedProvider === "discord" ? "Discord" : "Google"}アカウントを連携しました。`)
+        } else if (linkStatus === "error") {
+          setError(query.get("message") || "アカウント連携に失敗しました。")
+          window.history.replaceState(null, "", "/account")
+        }
 
       } catch (err) {
 
@@ -139,6 +186,38 @@ function Account() {
 
   }
 
+
+  const linkProvider = async provider => {
+    if (!user || linking) return
+
+    try {
+      setLinking(provider)
+      setMessage("")
+      setError("")
+
+      const idToken = await user.getIdToken()
+      const response = await fetch(
+        `${WORKER_URL}/auth/link/${provider}`,
+        {
+          headers: {
+            Authorization: `Bearer ${idToken}`
+          }
+        }
+      )
+
+      const data = await response.json().catch(() => ({}))
+
+      if (!response.ok || !data.url) {
+        throw new Error(data.error || "連携開始に失敗しました。")
+      }
+
+      window.location.href = data.url
+    } catch (err) {
+      console.error("Provider link error:", err)
+      setError(`連携に失敗しました: ${err.message}`)
+      setLinking("")
+    }
+  }
 
   const logout = async () => {
 
@@ -266,7 +345,9 @@ function Account() {
 
             {Object.entries(providerInfo).map(([provider, info]) => {
 
-              const connected = providers.includes(provider)
+              const connected =
+                providers.includes(provider) ||
+                Boolean(profile?.[provider])
 
               return (
                 <div
@@ -282,15 +363,28 @@ function Account() {
                     </span>
                   </div>
 
-                  <span
-                    className={
-                      connected
-                        ? "account-provider-status connected"
-                        : "account-provider-status"
-                    }
-                  >
-                    {connected ? "連携済み" : "未連携"}
-                  </span>
+                  <div className="account-provider-actions">
+                    <span
+                      className={
+                        connected
+                          ? "account-provider-status connected"
+                          : "account-provider-status"
+                      }
+                    >
+                      {connected ? "連携済み" : "未連携"}
+                    </span>
+
+                    {!connected && (
+                      <button
+                        type="button"
+                        className="account-provider-link-button"
+                        onClick={() => linkProvider(provider)}
+                        disabled={Boolean(linking)}
+                      >
+                        {linking === provider ? "連携中..." : "連携する"}
+                      </button>
+                    )}
+                  </div>
                 </div>
               )
 
