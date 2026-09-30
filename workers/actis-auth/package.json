@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "scripts": {
     "dev": "npx wrangler dev",
+    "build": "npx wrangler deploy",
     "deploy": "npx wrangler deploy"
   }
 }
