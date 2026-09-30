@@ -23,9 +23,10 @@ function App() {
   return (
     <DatasetProvider>
       <BrowserRouter>
-        <Header />
+        <div className="app-root">
+          <Header />
 
-        <div className="layout">
+          <div className="layout">
           <Sidebar />
 
           <main className="content">
@@ -47,14 +48,15 @@ function App() {
               <Route path="/privacy" element={<Privacy />} />
             </Routes>
           </main>
-        </div>
+          </div>
 
-        <footer className="privacy-footer">
+          <footer className="privacy-footer">
           <div className="privacy-footer-inner">
             <span className="privacy-footer-copy">© 2026 ACTIS / goshi4058. All rights reserved.</span>
             <Link className="privacy-footer-link" to="/privacy">プライバシーポリシー</Link>
           </div>
-        </footer>
+          </footer>
+        </div>
       </BrowserRouter>
     </DatasetProvider>
   )
