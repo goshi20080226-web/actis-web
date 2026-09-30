@@ -186,7 +186,7 @@ function Admin() {
         {users.length === 0 ? (
           <div className="admin-empty">登録されているACTISアカウントデータがありません。</div>
         ) : users.map(user => {
-          const displayName = user.profile.displayName || user.profile.discord?.globalName || user.profile.google?.name || user.profile.email || "名称未設定"
+          const displayName = user.profile.discord?.globalName || user.profile.discord?.username || user.profile.google?.name || user.profile.displayName || user.profile.email || "名称未設定"
           const email = user.profile.email || user.profile.discord?.email || user.profile.google?.email || "メールアドレス未登録"
           const isSelf = user.uid === auth.currentUser?.uid
           return (
