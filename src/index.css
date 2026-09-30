@@ -45,6 +45,24 @@ button {
 }
 
 /* =========================================================
+   App shell / footer
+========================================================= */
+
+.app-root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-root > .layout {
+  flex: 1 0 auto;
+}
+
+.app-root > .privacy-footer {
+  flex: 0 0 auto;
+}
+
+/* =========================================================
    Header
    ACTIS brand on the left, account on the right.
 ========================================================= */
