@@ -1,0 +1,137 @@
+.privacy-page {
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.privacy-header {
+  margin-bottom: 26px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid #dfe5e9;
+}
+
+.privacy-header h1 {
+  margin: 0;
+  font-size: 30px;
+  line-height: 1.3;
+  font-weight: 850;
+}
+
+.privacy-header > p:last-child {
+  margin-top: 8px;
+  color: #687782;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.privacy-content {
+  display: grid;
+  gap: 22px;
+}
+
+.privacy-content section {
+  padding: 20px;
+  border: 1px solid #d8e0e6;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.privacy-content h2 {
+  margin: 0 0 10px;
+  font-size: 18px;
+  line-height: 1.4;
+}
+
+.privacy-content p,
+.privacy-content li {
+  color: #34434d;
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+.privacy-content p {
+  margin: 0 0 9px;
+}
+
+.privacy-content p:last-child {
+  margin-bottom: 0;
+}
+
+.privacy-content ul {
+  margin: 7px 0 0;
+  padding-left: 22px;
+}
+
+.privacy-content li + li {
+  margin-top: 3px;
+}
+
+.privacy-note {
+  color: #687782 !important;
+  font-size: 12px !important;
+}
+
+.privacy-meta {
+  border: 0 !important;
+  background: #f7f9fa !important;
+}
+
+.privacy-meta p {
+  color: #687782;
+  font-size: 12px;
+}
+
+.privacy-footer {
+  width: 100%;
+  padding: 20px 36px;
+  border-top: 1px solid #dfe5e9;
+  background: #f7f9fa;
+}
+
+.privacy-footer-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.privacy-footer-copy {
+  color: #687782;
+  font-size: 11px;
+}
+
+.privacy-footer-link {
+  color: #52616d;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.privacy-footer-link:hover {
+  color: #1f8a70;
+}
+
+@media (max-width: 760px) {
+  .privacy-page {
+    max-width: none;
+  }
+
+  .privacy-header h1 {
+    font-size: 26px;
+  }
+
+  .privacy-content section {
+    padding: 16px;
+  }
+
+  .privacy-footer {
+    padding: 18px 14px;
+  }
+
+  .privacy-footer-inner {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
