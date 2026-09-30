@@ -55,18 +55,26 @@ function Privacy() {
         </section>
 
         <section>
-          <h2>7. プライバシーポリシーの変更</h2>
+          <h2>7. 著作権・知的財産権</h2>
+          <p>ACTIS（Advanced Crew & Train Information System）のプログラム、画面デザイン、ロゴ、文章、その他のコンテンツに関する著作権その他の知的財産権は、特に記載がない限り、<strong>goshi4058</strong>に帰属します。</p>
+          <p>ACTIS上でユーザーが作成・アップロードしたダイヤ、列車、路線、スタフ等のデータについては、ユーザー自身が権利を有する範囲を除き、ACTISまたは第三者が権利を有するものを無断で利用してはなりません。</p>
+          <p>法令で認められる場合を除き、ACTISのコンテンツを無断で複製、転載、改変、再配布、販売等することを禁止します。</p>
+        </section>
+
+        <section>
+          <h2>8. プライバシーポリシーの変更</h2>
           <p>本ポリシーは、サービスの変更や法令等への対応のため、必要に応じて変更することがあります。変更後のポリシーは、ACTIS上に掲載した時点から適用します。</p>
         </section>
 
         <section>
-          <h2>8. お問い合わせ</h2>
+          <h2>9. お問い合わせ</h2>
           <p>ACTISの個人情報の取扱いに関するお問い合わせは、ACTISの運営者までご連絡ください。</p>
           <p className="privacy-note">※連絡先は今後、ACTIS上に掲載する予定です。</p>
         </section>
 
         <section className="privacy-meta">
-          <p>制定日：2026年9月30日</p>
+          <p>著作権者：goshi4058</p>
+          <p>制定日：2026年9月30日
           <p>対象サービス：ACTIS（Advanced Crew & Train Information System）</p>
         </section>
       </div>
