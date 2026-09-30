@@ -930,13 +930,25 @@ textarea:focus {
 
 /* =========================================================
    Footer / privacy policy
+   Keep the footer visible at the bottom of the viewport.
 ========================================================= */
 
+.app-root {
+  padding-bottom: 61px;
+}
+
 .privacy-footer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 500;
   width: 100%;
+  min-height: 61px;
   padding: 20px 36px;
   border-top: 1px solid #dfe5e9;
   background: #f7f9fa;
+  box-shadow: 0 -2px 8px rgba(16, 24, 32, .06);
 }
 
 .privacy-footer-inner {
