@@ -27,6 +27,8 @@ import {
   database
 } from "../firebase/config"
 
+import "./login.css"
+
 
 const WORKER_URL =
   "https://actis-auth.goshi20080226.workers.dev"
