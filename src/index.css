@@ -846,6 +846,11 @@ textarea:focus {
 ========================================================= */
 
 @media (max-width: 760px) {
+  .sidebar-footer {
+    grid-column: 1 / -1;
+    margin-top: 8px;
+  }
+
   .header {
     min-height: 62px;
     padding: 10px 14px;
