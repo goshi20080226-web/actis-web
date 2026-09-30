@@ -17,6 +17,10 @@ function Header() {
           Railway Timetable System
         </span>
 
+        <span className="app-version">
+          v1.0.0
+        </span>
+
       </div>
 
 
