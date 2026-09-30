@@ -98,6 +98,32 @@ function Admin() {
     }
   }
 
+  const setUserBan = async (user, banned) => {
+    if (user.uid === auth.currentUser?.uid) {
+      setError("現在ログインしている管理者自身はBANできません。")
+      return
+    }
+
+    const name = user.profile.displayName || user.profile.email || user.uid
+    const action = banned ? "BAN" : "BAN解除"
+    if (!window.confirm(`ユーザー「${name}」を${action}しますか？${banned ? "\n\\nBANされたユーザーはACTISを利用できなくなります。" : ""}`)) return
+
+    try {
+      setBusy(`ban:${user.uid}`)
+      await update(ref(database), {
+        [`users/${user.uid}/profile/banned`]: banned,
+        [`users/${user.uid}/profile/banUpdatedAt`]: Date.now(),
+        [`users/${user.uid}/profile/banUpdatedBy`]: auth.currentUser?.uid || ""
+      })
+      await load()
+    } catch (err) {
+      console.error("Admin ban update error:", err)
+      setError(`BAN状態の変更に失敗しました: ${err.message}`)
+    } finally {
+      setBusy("")
+    }
+  }
+
   const deleteUserData = async user => {
     if (user.uid === auth.currentUser?.uid) {
       setError("現在ログインしている管理者自身のデータは、この画面から削除できません。")
