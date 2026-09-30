@@ -50,7 +50,22 @@ function App() {
           </main>
           </div>
 
-          <footer className="privacy-footer">
+          <footer
+            className="privacy-footer"
+            style={{
+              display: "block",
+              position: "fixed",
+              left: 0,
+              right: 0,
+              bottom: 0,
+              zIndex: 500,
+              width: "100%",
+              minHeight: "61px",
+              boxSizing: "border-box",
+              background: "#f7f9fa",
+              borderTop: "1px solid #dfe5e9",
+            }}
+          >
           <div className="privacy-footer-inner">
             <span className="privacy-footer-copy">© 2026 ACTIS / goshi4058. All rights reserved.</span>
             <Link className="privacy-footer-link" to="/privacy">プライバシーポリシー</Link>
