@@ -19,6 +19,17 @@ function AuthGuard({ children }) {
       }
 
       try {
+        const usesEmailPassword = currentUser.providerData?.some(
+          provider => provider.providerId === "password"
+        )
+
+        if (usesEmailPassword && !currentUser.emailVerified) {
+          await signOut(auth)
+          setUser(null)
+          setBanned(false)
+          return
+        }
+
         const snapshot = await get(ref(database, `users/${currentUser.uid}/profile`))
         const profile = snapshot.exists() ? snapshot.val() : {}
         if (profile.banned === true) {
