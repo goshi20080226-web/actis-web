@@ -1573,6 +1573,9 @@ async function discordCallback(
 
     )
 
+  const state = url.searchParams.get("state")
+  const linkState = await getLinkState(env, "discord", state)
+
 
 
 
