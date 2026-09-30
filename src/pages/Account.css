@@ -261,3 +261,38 @@
     width: 100%;
   }
 }
+
+
+.account-provider-actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.account-provider-link-button {
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid #cfd9df;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #34434d;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.account-provider-link-button:hover:not(:disabled) {
+  background: #f3f6f8;
+}
+
+.account-provider-link-button:disabled {
+  opacity: .65;
+  cursor: wait;
+}
+
+@media (max-width: 600px) {
+  .account-provider-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
