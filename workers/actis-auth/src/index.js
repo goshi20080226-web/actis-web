@@ -3126,14 +3126,18 @@ export default {
 
 
     if (request.method === "OPTIONS") {
-      return new Response(null, {
-        status: 204,
-        headers: {
-          "Access-Control-Allow-Origin": String(env.ACTIS_ORIGIN || "*"),
-          "Access-Control-Allow-Headers": "Authorization, Content-Type",
-          "Access-Control-Allow-Methods": "GET, OPTIONS"
-        }
-      })
+      const origin = request.headers.get("Origin") || ""
+      const allowedOrigin = String(env.ACTIS_ORIGIN || "").trim()
+      const headers = {
+        "Access-Control-Allow-Headers": "Authorization, Content-Type",
+        "Access-Control-Allow-Methods": "GET, OPTIONS",
+        "Access-Control-Max-Age": "600"
+      }
+      if (origin && origin === allowedOrigin) {
+        headers["Access-Control-Allow-Origin"] = origin
+        headers["Vary"] = "Origin"
+      }
+      return new Response(null, { status: 204, headers })
     }
 
     if (
