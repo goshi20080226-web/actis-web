@@ -200,9 +200,26 @@ function Admin() {
                 <div className="admin-user-actions">
                   {isSelf && <span className="admin-self">現在の管理者</span>}
                   {!isSelf && (
-                    <button type="button" className="admin-danger" disabled={busy !== ""} onClick={() => deleteUserData(user)}>
-                      {busy === `user:${user.uid}` ? "削除中..." : "全データ削除"}
-                    </button>
+                    <>
+                      <span className={user.profile.banned ? "admin-banned" : "admin-active"}>
+                        {user.profile.banned ? "BAN中" : "利用可能"}
+                      </span>
+                      <button
+                        type="button"
+                        className={user.profile.banned ? "admin-ban-release" : "admin-danger"}
+                        disabled={busy !== ""}
+                        onClick={() => setUserBan(user, !user.profile.banned)}
+                      >
+                        {busy === `ban:${user.uid}`
+                          ? "処理中..."
+                          : user.profile.banned
+                            ? "BAN解除"
+                            : "BAN"}
+                      </button>
+                      <button type="button" className="admin-danger" disabled={busy !== ""} onClick={() => deleteUserData(user)}>
+                        {busy === `user:${user.uid}` ? "削除中..." : "全データ削除"}
+                      </button>
+                    </>
                   )}
                 </div>
               </div>
