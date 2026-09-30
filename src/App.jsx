@@ -19,6 +19,16 @@ import Account from "./pages/Account"
 import Privacy from "./pages/Privacy"
 import { DatasetProvider } from "./context/DatasetContext"
 
+function RouteFallback() {
+  const path = window.location.pathname.replace(/\/+$/, "") || "/"
+
+  if (path === "/privacy") {
+    return <Privacy />
+  }
+
+  return <Navigate to="/" replace />
+}
+
 function App() {
   return (
     <DatasetProvider>
@@ -47,7 +57,7 @@ function App() {
                 <Route path="/trains" element={<AuthGuard><Trains /></AuthGuard>} />
                 <Route path="/lines" element={<AuthGuard><Lines /></AuthGuard>} />
                 <Route path="/admin" element={<AdminGuard><Admin /></AdminGuard>} />
-                <Route path="*" element={<Navigate to="/" replace />} />
+                <Route path="*" element={<RouteFallback />} />
               </Routes>
             </main>
           </div>
