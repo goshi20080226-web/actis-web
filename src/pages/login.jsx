@@ -221,6 +221,13 @@ function Login() {
               ? snapshot.val()
               : {}
 
+          if (oldProfile.banned === true) {
+            await import("firebase/auth").then(({ signOut }) => signOut(auth))
+            setError("このアカウントはBANされています。ACTISを利用できません。")
+            setLoading(false)
+            return
+          }
+
 
           /*
            * =====================================
