@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Link } from "react-router-dom"
+import { BrowserRouter, Routes, Route } from "react-router-dom"
 import Upload from "./pages/Upload"
 import Header from "./components/Header"
 import Sidebar from "./components/Sidebar"
@@ -49,12 +49,6 @@ function App() {
             </Routes>
           </main>
 
-          <footer className="privacy-footer">
-            <div className="privacy-footer-inner">
-              <span className="privacy-footer-copy">© 2026 ACTIS / goshi4058. All rights reserved.</span>
-              <Link className="privacy-footer-link" to="/privacy">プライバシーポリシー</Link>
-            </div>
-          </footer>
           </div>
         </div>
       </BrowserRouter>
