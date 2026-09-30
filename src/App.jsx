@@ -48,13 +48,13 @@ function App() {
               <Route path="/privacy" element={<Privacy />} />
             </Routes>
           </main>
-            <footer className="privacy-footer">
-              <div className="privacy-footer-inner">
-                <span className="privacy-footer-copy">© 2026 ACTIS / goshi4058. All rights reserved.</span>
-                <Link className="privacy-footer-link" to="/privacy">プライバシーポリシー</Link>
-              </div>
-            </footer>
-          </main>
+
+          <footer className="privacy-footer">
+            <div className="privacy-footer-inner">
+              <span className="privacy-footer-copy">© 2026 ACTIS / goshi4058. All rights reserved.</span>
+              <Link className="privacy-footer-link" to="/privacy">プライバシーポリシー</Link>
+            </div>
+          </footer>
           </div>
         </div>
       </BrowserRouter>
