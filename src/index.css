@@ -928,50 +928,37 @@ textarea:focus {
 }
 
 
+
 /* =========================================================
-   Footer / privacy policy
+   Sidebar footer
 ========================================================= */
 
-.privacy-footer {
-  width: 100%;
-  margin-top: 32px;
-  padding: 18px 0 4px;
-  border-top: 1px solid #dfe5e9;
-  background: #ffffff;
-}
-
-.privacy-footer-inner {
-  width: 100%;
+.sidebar-footer {
+  margin-top: auto;
+  padding-top: 16px;
+  border-top: 1px solid #26343d;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+  flex-direction: column;
+  gap: 7px;
 }
 
-.privacy-footer-copy {
-  color: #687782;
+.sidebar-footer a {
+  min-height: auto;
+  padding: 0 2px;
+  border-radius: 0;
+  color: #aebbc4;
   font-size: 11px;
-}
-
-.privacy-footer-link {
-  color: #52616d;
-  font-size: 12px;
   font-weight: 700;
-  text-decoration: none;
 }
 
-.privacy-footer-link:hover {
-  color: #1f8a70;
+.sidebar-footer a:hover {
+  background: transparent;
+  color: #ffffff;
 }
 
-@media (max-width: 760px) {
-  .privacy-footer {
-    margin-top: 24px;
-    padding: 16px 0 2px;
-  }
-
-  .privacy-footer-inner {
-    align-items: flex-start;
-    flex-direction: column;
-  }
+.sidebar-footer span {
+  padding: 0 2px;
+  color: #71808a;
+  font-size: 10px;
+  line-height: 1.4;
 }
