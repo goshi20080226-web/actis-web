@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom"
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
 import Upload from "./pages/Upload"
 import Header from "./components/Header"
 import Sidebar from "./components/Sidebar"
@@ -27,30 +27,29 @@ function App() {
           <Header />
 
           <div className="layout">
-          <Sidebar />
+            <Sidebar />
 
-          <main className="content">
-            <Routes>
-              <Route path="/privacy" element={<Privacy />} />
-              <Route path="/privacy/" element={<Privacy />} />
-              <Route path="/staff" element={<AuthGuard><Staff /></AuthGuard>} />
-              <Route path="/datasets" element={<AuthGuard><Datasets /></AuthGuard>} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/account" element={<AuthGuard><Account /></AuthGuard>} />
-              <Route path="/staff/:trainId" element={<AuthGuard><Staff /></AuthGuard>} />
-              <Route path="/staff/operation/:operationName" element={<AuthGuard><StaffOperation /></AuthGuard>} />
-              <Route path="/" element={<Home />} />
-              <Route path="/upload" element={<AuthGuard><Upload /></AuthGuard>} />
-              <Route path="/timetable" element={<AuthGuard><Timetable /></AuthGuard>} />
-              <Route path="/test" element={<AuthGuard><TestFirebase /></AuthGuard>} />
-              <Route path="/diagram" element={<AuthGuard><Diagram /></AuthGuard>} />
-              <Route path="/trains" element={<AuthGuard><Trains /></AuthGuard>} />
-              <Route path="/lines" element={<AuthGuard><Lines /></AuthGuard>} />
-              <Route path="/admin" element={<AdminGuard><Admin /></AdminGuard>} />
-            
-            </Routes>
-          </main>
-
+            <main className="content">
+              <Routes>
+                <Route path="/privacy" element={<Privacy />} />
+                <Route path="/privacy/" element={<Privacy />} />
+                <Route path="/staff" element={<AuthGuard><Staff /></AuthGuard>} />
+                <Route path="/datasets" element={<AuthGuard><Datasets /></AuthGuard>} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/account" element={<AuthGuard><Account /></AuthGuard>} />
+                <Route path="/staff/:trainId" element={<AuthGuard><Staff /></AuthGuard>} />
+                <Route path="/staff/operation/:operationName" element={<AuthGuard><StaffOperation /></AuthGuard>} />
+                <Route path="/" element={<Home />} />
+                <Route path="/upload" element={<AuthGuard><Upload /></AuthGuard>} />
+                <Route path="/timetable" element={<AuthGuard><Timetable /></AuthGuard>} />
+                <Route path="/test" element={<AuthGuard><TestFirebase /></AuthGuard>} />
+                <Route path="/diagram" element={<AuthGuard><Diagram /></AuthGuard>} />
+                <Route path="/trains" element={<AuthGuard><Trains /></AuthGuard>} />
+                <Route path="/lines" element={<AuthGuard><Lines /></AuthGuard>} />
+                <Route path="/admin" element={<AdminGuard><Admin /></AdminGuard>} />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </main>
           </div>
         </div>
       </BrowserRouter>
