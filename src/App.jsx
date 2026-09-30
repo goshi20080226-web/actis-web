@@ -31,6 +31,8 @@ function App() {
 
           <main className="content">
             <Routes>
+              <Route path="/privacy" element={<Privacy />} />
+              <Route path="/privacy/" element={<Privacy />} />
               <Route path="/staff" element={<AuthGuard><Staff /></AuthGuard>} />
               <Route path="/datasets" element={<AuthGuard><Datasets /></AuthGuard>} />
               <Route path="/login" element={<Login />} />
@@ -45,8 +47,7 @@ function App() {
               <Route path="/trains" element={<AuthGuard><Trains /></AuthGuard>} />
               <Route path="/lines" element={<AuthGuard><Lines /></AuthGuard>} />
               <Route path="/admin" element={<AdminGuard><Admin /></AdminGuard>} />
-              <Route path="/privacy" element={<Privacy />} />
-              <Route path="/privacy/" element={<Privacy />} />
+            
             </Routes>
           </main>
 
