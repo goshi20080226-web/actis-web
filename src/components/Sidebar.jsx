@@ -25,6 +25,11 @@ function Sidebar() {
       <Link to="/staff">スタフ</Link>
       <Link to="/roster">行路組み立て</Link>
       <Link to="/upload">データアップロード</Link>
+
+      <div className="sidebar-footer">
+        <Link to="/privacy">プライバシーポリシー</Link>
+        <span>© 2026 ACTIS / goshi4058</span>
+      </div>
     </aside>
   )
 }
