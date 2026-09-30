@@ -74,7 +74,7 @@ function Privacy() {
 
         <section className="privacy-meta">
           <p>著作権者：goshi4058</p>
-          <p>制定日：2026年9月30日
+          <p>制定日：2026年9月30日</p>
           <p>対象サービス：ACTIS（Advanced Crew & Train Information System）</p>
         </section>
       </div>
