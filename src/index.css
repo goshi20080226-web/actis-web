@@ -908,3 +908,51 @@ textarea:focus {
     grid-template-columns: 60px 55px minmax(0, 1fr);
   }
 }
+
+
+/* =========================================================
+   Footer / privacy policy
+========================================================= */
+
+.privacy-footer {
+  width: 100%;
+  padding: 20px 36px;
+  border-top: 1px solid #dfe5e9;
+  background: #f7f9fa;
+}
+
+.privacy-footer-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.privacy-footer-copy {
+  color: #687782;
+  font-size: 11px;
+}
+
+.privacy-footer-link {
+  color: #52616d;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.privacy-footer-link:hover {
+  color: #1f8a70;
+}
+
+@media (max-width: 760px) {
+  .privacy-footer {
+    padding: 18px 14px;
+  }
+
+  .privacy-footer-inner {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
