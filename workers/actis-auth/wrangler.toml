@@ -1,0 +1,8 @@
+name = "actis-auth"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+
+# Replace with the existing AUTH_KV namespace ID before CLI deployment.
+[[kv_namespaces]]
+binding = "AUTH_KV"
+id = "REPLACE_WITH_EXISTING_AUTH_KV_NAMESPACE_ID"
