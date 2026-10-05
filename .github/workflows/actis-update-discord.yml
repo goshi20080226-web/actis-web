@@ -39,7 +39,7 @@ jobs:
           python3 - <<PY
           import subprocess
           base = "${BASE}"
-          raw = subprocess.check_output(["git", "log", "--format=%H%x09%s", f"${base}..HEAD"], text=True, encoding="utf-8")
+          raw = subprocess.check_output(["git", "log", "--format=%H%x09%s", base + "..HEAD"], text=True, encoding="utf-8")
           internal_prefixes = ("chore:", "ci:", "build:", "test:", "refactor:", "perf:", "docs:", "style:", "deps:", "dependency:", "workflow:")
           surface_keywords = ("feat:", "feature:", "add:", "added:", "fix:", "update:", "変更", "修正", "追加", "実装", "改善", "新機能", "機能追加", "画面", "デザイン", "表示", "レイアウト", "ページ", "ボタン", "メニュー", "発車標", "時刻表")
           surface = []
