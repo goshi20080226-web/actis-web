@@ -1393,7 +1393,42 @@ textarea:focus {
   border: 1px solid #e0e6ea;
   border-radius: 6px;
   background: #f8fafb;
+  color: inherit;
+  text-decoration: none;
   font-size: 12px;
+  cursor: pointer;
+}
+
+.shared-train-card:hover {
+  border-color: #b8c5cd;
+  background: #f1f5f7;
+}
+
+.shared-train-staff-link {
+  color: #2563eb;
+  font-weight: 600;
+  text-align: right;
+}
+
+.shared-section-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.shared-back-link {
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+.shared-selected-staff {
+  margin-bottom: 18px;
+}
+
+.shared-roster-train.active {
+  border-color: #2563eb;
+  background: #eff6ff;
 }
 
 .shared-train-card strong {
