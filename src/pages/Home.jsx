@@ -177,6 +177,22 @@ function Home() {
           </button>
         ))}
       </section>
+
+      <section className="official-links" aria-label="公式リンク">
+        <a
+          className="official-discord-card"
+          href="https://discord.gg/vda3nRvfQd"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <div>
+            <p className="eyebrow">Official Community</p>
+            <strong>公式Discordサーバー</strong>
+            <span>ACTISに関するお問い合わせや情報交換はこちら</span>
+          </div>
+          <span aria-hidden="true">↗</span>
+        </a>
+      </section>
     </div>
   )
 }
