@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { useParams } from "react-router-dom"
+import { Link, useParams, useSearchParams } from "react-router-dom"
 import { get, ref } from "firebase/database"
 import { database } from "../firebase/config"
 
@@ -12,6 +12,8 @@ function formatTime(value) {
 
 function SharedDataset() {
   const { shareId } = useParams()
+  const [searchParams] = useSearchParams()
+  const selectedTrainId = searchParams.get("train") || ""
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -51,6 +53,23 @@ function SharedDataset() {
     trains.map(train => [String(train.id || train.trainId || ""), train])
   )
 
+  const selectedTrain = selectedTrainId
+    ? trainMap.get(String(selectedTrainId)) ||
+      trains.find(train => String(train.trainNo || "") === String(selectedTrainId))
+    : null
+
+  const selectedTrainRosters = selectedTrain
+    ? crewRosters.filter(roster =>
+        roster.items.some(item =>
+          item?.type === "train" &&
+          (
+            String(item.trainId || "") === String(selectedTrain.id || selectedTrain.trainId || "") ||
+            String(item.trainNo || "") === String(selectedTrain.trainNo || "")
+          )
+        )
+      )
+    : []
+
   return (
     <div className="shared-dataset-page">
       <div className="page-hero">
@@ -86,19 +105,64 @@ function SharedDataset() {
                 const first = stations[0] || {}
                 const last = stations[stations.length - 1] || {}
                 return (
-                  <div className="shared-train-card" key={train.trainId || train.id || index}>
+                  <Link
+                    className="shared-train-card"
+                    key={train.trainId || train.id || index}
+                    to={`/share/${encodeURIComponent(shareId)}?train=${encodeURIComponent(train.id || train.trainId || train.trainNo || "")}`}
+                  >
                     <strong>{train.trainNo || "—"}</strong>
                     <span>{train.typeShort || train.type || "—"}</span>
                     <span>{train.origin || first.name || "—"} → {train.destination || train.finalDest || last.name || "—"}</span>
                     <span>{formatTime(first.departure || first.dep || first.arrival || first.arr)} → {formatTime(last.arrival || last.arr || last.departure || last.dep)}</span>
-                  </div>
+                    <span className="shared-train-staff-link">スタフを見る ›</span>
+                  </Link>
                 )
               })}
           </div>
         )}
       </section>
 
-      <section className="shared-trains-section">
+      {selectedTrain && (
+        <section className="shared-trains-section shared-selected-staff">
+          <div className="shared-section-header">
+            <div>
+              <p className="eyebrow">STAFF</p>
+              <h2>{selectedTrain.trainNo || "—"} のスタフ</h2>
+              <p>{selectedTrain.origin || selectedTrain.stations?.[0]?.name || "—"} → {selectedTrain.destination || selectedTrain.finalDest || selectedTrain.stations?.at(-1)?.name || "—"}</p>
+            </div>
+            <Link className="shared-back-link" to={`/share/${encodeURIComponent(shareId)}`}>列車一覧へ戻る</Link>
+          </div>
+          {selectedTrainRosters.length === 0 ? (
+            <p>この列車を担当するスタフが共有されていません。</p>
+          ) : (
+            <div className="shared-roster-list">
+              {selectedTrainRosters.map(roster => (
+                <article className="shared-roster-card" key={roster.id}>
+                  <div className="shared-roster-header">
+                    <div>
+                      <p className="eyebrow">ROSTER</p>
+                      <h3>{roster.name || "名称未設定"}</h3>
+                    </div>
+                    <span>{roster.crewType || "乗務員"}</span>
+                  </div>
+                  <div className="shared-roster-sequence">
+                    {roster.items.map((item, index) => {
+                      if (item?.type !== "train") {
+                        const labels = { change: "乗務員交代", break: "休憩", wait: "待機", report: "出勤", finish: "退勤" }
+                        return <div className="shared-roster-event" key={`event-${index}`}><strong>{labels[item?.type] || "イベント"}</strong><span>{item?.time || "—"} / {item?.station || "場所未設定"}</span></div>
+                      }
+                      const train = trainMap.get(String(item.trainId || "")) || trains.find(value => String(value.trainNo || "") === String(item.trainNo || ""))
+                      return <div className={`shared-roster-train ${String(train?.id || train?.trainId || "") === String(selectedTrain.id || selectedTrain.trainId || "") ? "active" : ""`} key={`train-${index}`}><strong>{train?.trainNo || item.trainNo || "—"}</strong><span>{train ? `${train.origin || train.stations?.[0]?.name || "—"} → ${train.destination || train.finalDest || train.stations?.at(-1)?.name || "—"}` : "列車データなし"}</span></div>
+                    })}
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      <section className="shared-trains-section shared-rosters-section">
         <h2>スタフ・行路</h2>
         {crewRosters.length === 0 ? (
           <p>共有されている行路データがありません。</p>
