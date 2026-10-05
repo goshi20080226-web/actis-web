@@ -15,6 +15,7 @@ import Timetable from './pages/Timetable.jsx'
 import DepartureBoard from './pages/DepartureBoard.jsx'
 import Trains from './pages/trains.jsx'
 import Upload from './pages/upload.jsx'
+import SharedDataset from './pages/SharedDataset.jsx'
 import AuthGuard from './components/AuthGuard.jsx'
 import AdminGuard from './components/AdminGuard.jsx'
 import Header from './components/Header.jsx'
@@ -38,6 +39,7 @@ function App() {
               <Routes>
                 <Route path="/privacy" element={<Privacy />} />
                 <Route path="/terms" element={<Terms />} />
+                <Route path="/share/:shareId" element={<SharedDataset />} />
                 <Route path="/" element={<Home />} />
                 <Route path="/login" element={<Login />} />
                 <Route
