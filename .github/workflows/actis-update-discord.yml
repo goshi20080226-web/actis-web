@@ -130,8 +130,32 @@ jobs:
               method="POST"
           )
 
-          with urllib.request.urlopen(req) as response:
-              data = json.load(response)
+          import time
+          from urllib.error import HTTPError
+
+          data = None
+
+          for attempt in range(4):
+              try:
+                  with urllib.request.urlopen(req, timeout=60) as response:
+                      data = json.load(response)
+                  break
+              except HTTPError as error:
+                  body = error.read().decode("utf-8", errors="replace")
+                  if error.code == 429 and attempt < 3:
+                      retry_after = error.headers.get("Retry-After")
+                      try:
+                          wait = max(5, int(float(retry_after))) if retry_after else 10 * (attempt + 1)
+                      except ValueError:
+                          wait = 10 * (attempt + 1)
+                      print(f"OpenAI API returned 429. Retrying in {wait}s...")
+                      time.sleep(wait)
+                      continue
+                  print(f"OpenAI API error HTTP {error.code}: {body}")
+                  raise
+
+          if not data:
+              raise SystemExit("OpenAI returned no response data.")
 
           text = data.get("output_text", "").strip()
           if not text:
