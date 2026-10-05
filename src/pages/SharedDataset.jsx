@@ -152,7 +152,16 @@ function SharedDataset() {
                         return <div className="shared-roster-event" key={`event-${index}`}><strong>{labels[item?.type] || "イベント"}</strong><span>{item?.time || "—"} / {item?.station || "場所未設定"}</span></div>
                       }
                       const train = trainMap.get(String(item.trainId || "")) || trains.find(value => String(value.trainNo || "") === String(item.trainNo || ""))
-                      return <div className={`shared-roster-train ${String(train?.id || train?.trainId || "") === String(selectedTrain.id || selectedTrain.trainId || "") ? "active" : ""`} key={`train-${index}`}><strong>{train?.trainNo || item.trainNo || "—"}</strong><span>{train ? `${train.origin || train.stations?.[0]?.name || "—"} → ${train.destination || train.finalDest || train.stations?.at(-1)?.name || "—"}` : "列車データなし"}</span></div>
+                      const isSelected = String(train?.id || train?.trainId || "") === String(selectedTrain.id || selectedTrain.trainId || "")
+                      const trainRoute = train
+                        ? (train.origin || train.stations?.[0]?.name || "—") + " → " + (train.destination || train.finalDest || train.stations?.at(-1)?.name || "—")
+                        : "列車データなし"
+                      return (
+                        <div className={"shared-roster-train" + (isSelected ? " active" : "")} key={"train-" + index}>
+                          <strong>{train?.trainNo || item.trainNo || "—"}</strong>
+                          <span>{trainRoute}</span>
+                        </div>
+                      )
                     })}
                   </div>
                 </article>
