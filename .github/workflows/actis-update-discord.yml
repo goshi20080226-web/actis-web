@@ -96,7 +96,7 @@ jobs:
           if ! git rev-parse "$TAG" >/dev/null 2>&1; then echo "通知済みアップデートの記録がありません。"; exit 1; fi
           PREV="$(git rev-parse "$TAG^")"
           python3 - <<PY
-          import json, os, subprocess, urllib.request
+          import json, os, subprocess, urllib.error, urllib.request
           prev = "${PREV}"
           tag = "${TAG}"
           raw = subprocess.check_output(["git","log","--format=%H%x09%s",prev+".."+tag], text=True, encoding="utf-8")
@@ -104,9 +104,15 @@ jobs:
           description = "\n".join("• "+x for x in lines) or "直前のアップデート内容を取得できませんでした。"
           if len(description) > 4000: description = description[:3997] + "..."
           payload = {"username":"ACTIS Update","embeds":[{"title":"🚆 ACTIS Web 直前アップデート","description":description,"url":"https://actis-web.pages.dev/","footer":{"text":"ACTIS Web • 直前アップデート配信"}}]}
-          req=urllib.request.Request(os.environ["DISCORD_WEBHOOK_URL"],data=json.dumps(payload,ensure_ascii=False).encode("utf-8"),headers={"Content-Type":"application/json"},method="POST")
-          with urllib.request.urlopen(req) as response:
-              if response.status >= 300: raise SystemExit(f"Discord returned HTTP {response.status}")
+          req=urllib.request.Request(os.environ["DISCORD_WEBHOOK_URL"],data=json.dumps(payload,ensure_ascii=False).encode("utf-8"),headers={"Content-Type":"application/json","User-Agent":"ACTIS-Update/0.1.0"},method="POST")
+          try:
+              with urllib.request.urlopen(req) as response:
+                  if response.status >= 300: raise SystemExit(f"Discord returned HTTP {response.status}")
+          except urllib.error.HTTPError as error:
+              body = error.read().decode("utf-8", errors="replace")
+              print(f"Discord HTTP {error.code}")
+              print(f"Discord response: {body}")
+              raise
           PY
 
   notify:
@@ -222,6 +228,7 @@ jobs:
           python3 - <<'PY'
           import json
           import os
+          import urllib.error
           import urllib.request
 
           update = open("/tmp/update.txt", encoding="utf-8").read().strip()
@@ -249,9 +256,15 @@ jobs:
               method="POST"
           )
 
-          with urllib.request.urlopen(req) as response:
-              if response.status >= 300:
-                  raise SystemExit(f"Discord returned HTTP {response.status}")
+          try:
+              with urllib.request.urlopen(req) as response:
+                  if response.status >= 300:
+                      raise SystemExit(f"Discord returned HTTP {response.status}")
+          except urllib.error.HTTPError as error:
+              body = error.read().decode("utf-8", errors="replace")
+              print(f"Discord HTTP {error.code}")
+              print(f"Discord response: {body}")
+              raise
           PY
 
       - name: Move notification marker
