@@ -31,7 +31,7 @@ import "./login.css"
 
 
 const WORKER_URL =
-  "https://actis-auth.goshi20080226.workers.dev"
+  "https://actis-auth.actis.workers.dev"
 
 
 function Login() {
