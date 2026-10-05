@@ -99,9 +99,9 @@ function App() {
                 <Route
                   path="/staff/:trainId"
                   element={
-                    <AdminGuard>
+                    <AuthGuard>
                       <Staff />
-                    </AdminGuard>
+                    </AuthGuard>
                   }
                 />
                 <Route
