@@ -186,6 +186,24 @@ button {
   flex: 0 0 auto;
 }
 
+.login-header-button {
+  min-width: 96px;
+  min-height: 42px;
+  padding: 0 18px;
+
+  border: 1px solid #1f8a70;
+  border-radius: 22px;
+
+  background: #1f8a70;
+  color: #ffffff;
+
+  font-weight: 800;
+}
+
+.login-header-button:hover {
+  background: #176d59;
+}
+
 .user-menu-button {
   min-width: 150px;
   min-height: 42px;
