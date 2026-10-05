@@ -134,7 +134,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Check update size
+      - name: Check update importance
         id: check
         shell: bash
         run: |
@@ -149,31 +149,50 @@ jobs:
           fi
           if [ -z "$BASE" ]; then
             echo "surface_count=0" >> "$GITHUB_OUTPUT"
+            echo "important_count=0" >> "$GITHUB_OUTPUT"
+            echo "normal_count=0" >> "$GITHUB_OUTPUT"
+            echo "minor_count=0" >> "$GITHUB_OUTPUT"
             echo "should_notify=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           python3 - <<PY
-          import subprocess
+          import re, subprocess
           base = "${BASE}"
-          raw = subprocess.check_output(["git", "log", "--format=%H%x09%s", base + "..HEAD"], text=True, encoding="utf-8")
-          internal_prefixes = ("chore:", "ci:", "build:", "test:", "refactor:", "perf:", "docs:", "style:", "deps:", "dependency:", "workflow:")
-          surface_keywords = ("feat:", "feature:", "add:", "added:", "fix:", "update:", "変更", "修正", "追加", "実装", "改善", "新機能", "機能追加", "画面", "デザイン", "表示", "レイアウト", "ページ", "ボタン", "メニュー", "発車標", "時刻表")
-          surface = []
+          raw = subprocess.check_output(["git","log","--format=%H%x09%s",base+"..HEAD"], text=True, encoding="utf-8")
+          internal = ("chore:","ci:","build:","test:","refactor:","perf:","docs:","style:","deps:","dependency:","workflow:")
+          important_patterns = (r"^feat[:：]",r"^feature[:：]",r"breaking",r"重大",r"新機能",r"機能追加",r"追加",r"実装",r"security",r"セキュリティ",r"認証",r"login",r"ログイン",r"公開",r"リリース")
+          normal_patterns = (r"^fix[:：]",r"^update[:：]",r"^improve[:：]",r"^change[:：]",r"修正",r"改善",r"変更",r"デザイン",r"表示",r"画面",r"レイアウト",r"発車標",r"時刻表",r"列車",r"路線",r"スタフ",r"行路",r"共有",r"データセット",r"webhook")
+          important=[]; normal=[]; minor=[]
           for line in raw.splitlines():
               if "\t" not in line: continue
-              sha, subject = line.split("\t", 1)
-              lower = subject.lower().strip()
-              if lower.startswith(internal_prefixes): continue
-              if lower.startswith("merge "): continue
-              surface.append(sha.strip())
-          open("/tmp/surface_commits.txt", "w", encoding="utf-8").write("\n".join(surface))
-          print(f"利用者向け変更: {len(surface)}件")
+              sha, subject = line.split("\t",1)
+              subject=subject.strip(); lower=subject.lower()
+              if lower.startswith(internal) or lower.startswith("merge "): continue
+              if any(re.search(p,subject,re.I) for p in important_patterns): important.append(sha)
+              elif any(re.search(p,subject,re.I) for p in normal_patterns): normal.append(sha)
+              else: minor.append(sha)
+          open("/tmp/surface_commits.txt","w",encoding="utf-8").write("\n".join(important+normal+minor))
+          open("/tmp/importance.txt","w",encoding="utf-8").write(f"{len(important)}\n{len(normal)}\n{len(minor)}\n")
           PY
-          SURFACE_COUNT="$(grep -c . /tmp/surface_commits.txt 2>/dev/null || true)"
+          IMPORTANT_COUNT="$(sed -n '1p' /tmp/importance.txt)"
+          NORMAL_COUNT="$(sed -n '2p' /tmp/importance.txt)"
+          MINOR_COUNT="$(sed -n '3p' /tmp/importance.txt)"
+          SURFACE_COUNT=$((IMPORTANT_COUNT + NORMAL_COUNT + MINOR_COUNT))
           echo "surface_count=$SURFACE_COUNT" >> "$GITHUB_OUTPUT"
           echo "count=$SURFACE_COUNT" >> "$GITHUB_OUTPUT"
-          if [ "$SURFACE_COUNT" -ge 1 ]; then echo "should_notify=true" >> "$GITHUB_OUTPUT"; else echo "should_notify=false" >> "$GITHUB_OUTPUT"; fi
-
+          echo "important_count=$IMPORTANT_COUNT" >> "$GITHUB_OUTPUT"
+          echo "normal_count=$NORMAL_COUNT" >> "$GITHUB_OUTPUT"
+          echo "minor_count=$MINOR_COUNT" >> "$GITHUB_OUTPUT"
+          if [ "$IMPORTANT_COUNT" -ge 1 ]; then
+            echo "importance=重要" >> "$GITHUB_OUTPUT"
+            echo "should_notify=true" >> "$GITHUB_OUTPUT"
+          elif [ "$NORMAL_COUNT" -ge 3 ]; then
+            echo "importance=通常" >> "$GITHUB_OUTPUT"
+            echo "should_notify=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "importance=軽微" >> "$GITHUB_OUTPUT"
+            echo "should_notify=false" >> "$GITHUB_OUTPUT"
+          fi
       - name: Initialize notification marker
         if: steps.check.outputs.initialized == 'false'
         shell: bash
@@ -311,6 +330,7 @@ jobs:
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           COMMIT_COUNT: ${{ steps.check.outputs.count }}
+          IMPORTANCE: ${{ steps.check.outputs.importance }}
         shell: bash
         run: |
           set -euo pipefail
@@ -335,11 +355,11 @@ jobs:
           payload = {
               "username": "ACTIS Update",
               "embeds": [{
-                  "title": "🚆 ACTIS Web アップデート",
+                  "title": f"🚆 ACTIS Web アップデート【{os.environ['IMPORTANCE']}】",
                   "description": description,
                   "url": "https://actis-web.pages.dev/",
                   "footer": {
-                      "text": f"ACTIS Web v0.1.0 • {os.environ['COMMIT_COUNT']}件の変更"
+                      "text": f"ACTIS Web v0.1.0 • 重要度: {os.environ['IMPORTANCE']} • {os.environ['COMMIT_COUNT']}件の変更"
                   }
               }]
           }
