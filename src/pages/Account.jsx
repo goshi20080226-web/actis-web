@@ -24,7 +24,7 @@ import {
 
 import "./Account.css"
 
-const WORKER_URL = "https://actis-auth.goshi20080226.workers.dev"
+const WORKER_URL = "https://actis-auth.actis.workers.dev"
 
 
 function Account() {
