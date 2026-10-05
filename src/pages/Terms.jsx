@@ -105,7 +105,8 @@ function Terms() {
 
         <section>
           <h2>第11条（お問い合わせ）</h2>
-          <p>本規約または本サービスに関するお問い合わせは、本サービス上で案内されているお問い合わせ方法を利用してください。</p>
+          <p>本規約または本サービスに関するお問い合わせは、以下のDiscordサーバーからお問い合わせください。</p>
+          <p><a href="https://discord.gg/vda3nRvfQd" target="_blank" rel="noopener noreferrer">ACTIS Discordサーバー</a></p>
         </section>
 
         <section className="privacy-meta">
