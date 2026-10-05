@@ -380,6 +380,74 @@ function Datasets() {
 
 
   // ========================================
+  // 共有URL発行
+  // ========================================
+
+  const shareDataset = async (dataset) => {
+    const user = auth.currentUser
+
+    if (!user) {
+      setError("ACTISアカウントにログインしてください。")
+      return
+    }
+
+    try {
+      setSaving(true)
+      setError("")
+
+      const shareId =
+        typeof crypto !== "undefined" && crypto.randomUUID
+          ? crypto.randomUUID().replace(/-/g, "")
+          : ${Date.now()}_${Math.random().toString(36).slice(2)}
+
+      const root = `users/${user.uid}`
+      const trainsSnapshot = await get(ref(database, `${root}/trains`))
+      const linesSnapshot = await get(ref(database, `${root}/lines`))
+
+      const trains = {}
+      const lines = {}
+
+      if (trainsSnapshot.exists()) {
+        Object.entries(trainsSnapshot.val()).forEach(([id, train]) => {
+          if (train?.datasetId === dataset.id) trains[id] = train
+        })
+      }
+
+      if (linesSnapshot.exists()) {
+        Object.entries(linesSnapshot.val()).forEach(([id, line]) => {
+          if (line?.datasetId === dataset.id) lines[id] = line
+        })
+      }
+
+      const publicDataset = { ...dataset, shareId, sharedAt: Date.now() }
+      delete publicDataset.id
+
+      const updates = {
+        [`sharedDatasets/${shareId}/dataset`]: publicDataset,
+        [`sharedDatasets/${shareId}/trains`]: trains,
+        [`sharedDatasets/${shareId}/lines`]: lines,
+        [`users/${user.uid}/datasets/${dataset.id}/shareId`]: shareId
+      }
+
+      await update(ref(database), updates)
+
+      const url = `${window.location.origin}/share/${shareId}`
+      try { await navigator.clipboard?.writeText(url) } catch {}
+      window.prompt("共有URL（コピー済み）", url)
+
+      setDatasets(current =>
+        current.map(item => item.id === dataset.id ? { ...item, shareId } : item)
+      )
+    } catch (err) {
+      console.error("Dataset share error:", err)
+      setError(`共有URLの発行に失敗しました: ${err.message}`)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+
+  // ========================================
   // 削除
   // ========================================
 
@@ -925,6 +993,22 @@ function Datasets() {
                         >
 
                           名前変更
+
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            shareDataset(
+                              dataset
+                            )
+                          }
+                          disabled={
+                            saving
+                          }
+                        >
+
+                          {dataset.shareId ? "共有URL再発行" : "共有URL"}
 
                         </button>
 
