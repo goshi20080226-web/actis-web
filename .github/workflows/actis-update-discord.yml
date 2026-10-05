@@ -262,7 +262,7 @@ jobs:
           req = urllib.request.Request(
               os.environ["DISCORD_WEBHOOK_URL"],
               data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
-              headers={"Content-Type": "application/json"},
+              headers={"Content-Type": "application/json", "User-Agent": "ACTIS-Update/0.1.0"},
               method="POST"
           )
 
