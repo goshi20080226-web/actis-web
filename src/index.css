@@ -1324,3 +1324,93 @@ textarea:focus {
   font-size: 10px;
   line-height: 1.4;
 }
+
+
+/* =========================================================
+   Shared dataset viewer
+========================================================= */
+
+.shared-dataset-page {
+  max-width: 1100px;
+}
+
+.shared-dataset-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.shared-dataset-summary > div,
+.shared-line-card,
+.shared-trains-section {
+  padding: 16px;
+  border: 1px solid #d8e0e6;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.shared-dataset-summary span {
+  display: block;
+  color: #687782;
+  font-size: 11px;
+}
+
+.shared-dataset-summary strong {
+  display: block;
+  margin-top: 5px;
+  overflow-wrap: anywhere;
+}
+
+.shared-line-card {
+  margin-bottom: 14px;
+}
+
+.shared-line-card h2,
+.shared-trains-section h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.shared-line-card p {
+  margin: 5px 0 0;
+  color: #687782;
+  font-size: 12px;
+}
+
+.shared-train-list {
+  display: grid;
+  gap: 7px;
+  margin-top: 12px;
+}
+
+.shared-train-card {
+  display: grid;
+  grid-template-columns: 90px 70px minmax(0, 1fr) 130px;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid #e0e6ea;
+  border-radius: 6px;
+  background: #f8fafb;
+  font-size: 12px;
+}
+
+.shared-train-card strong {
+  font-size: 14px;
+}
+
+@media (max-width: 760px) {
+  .shared-dataset-summary {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .shared-train-card {
+    grid-template-columns: 70px 55px minmax(0, 1fr);
+  }
+
+  .shared-train-card span:last-child {
+    grid-column: 1 / -1;
+    color: #52616d;
+  }
+}
