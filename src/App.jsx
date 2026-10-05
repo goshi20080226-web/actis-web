@@ -17,6 +17,7 @@ import AdminGuard from "./components/AdminGuard"
 import Datasets from "./pages/Datasets"
 import Account from "./pages/Account"
 import Privacy from "./pages/Privacy"
+import SharedDataset from "./pages/SharedDataset"
 import { DatasetProvider } from "./context/DatasetContext"
 
 function RouteFallback() {
@@ -41,6 +42,7 @@ function App() {
 
             <main className="content">
               <Routes>
+                <Route path="/share/:shareId" element={<SharedDataset />} />
                 <Route path="/privacy" element={<Privacy />} />
                 <Route path="/privacy/" element={<Privacy />} />
                 <Route path="/staff" element={<AuthGuard><Staff /></AuthGuard>} />
