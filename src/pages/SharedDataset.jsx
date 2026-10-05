@@ -74,7 +74,7 @@ function SharedDataset() {
     <div className="shared-dataset-page">
       <div className="page-hero">
         <div>
-          <p className="eyebrow">Shared Dataset</p>
+          <p className="eyebrow">共有ダイヤ</p>
           <h1>{dataset.name || dataset.fileName || "共有ダイヤ"}</h1>
           <p>このページは共有URLから閲覧できる公開ダイヤです。</p>
         </div>
@@ -126,7 +126,7 @@ function SharedDataset() {
         <section className="shared-trains-section shared-selected-staff">
           <div className="shared-section-header">
             <div>
-              <p className="eyebrow">STAFF</p>
+              <p className="eyebrow">スタフ</p>
               <h2>{selectedTrain.trainNo || "—"} のスタフ</h2>
               <p>{selectedTrain.origin || selectedTrain.stations?.[0]?.name || "—"} → {selectedTrain.destination || selectedTrain.finalDest || selectedTrain.stations?.at(-1)?.name || "—"}</p>
             </div>
@@ -140,7 +140,7 @@ function SharedDataset() {
                 <article className="shared-roster-card" key={roster.id}>
                   <div className="shared-roster-header">
                     <div>
-                      <p className="eyebrow">ROSTER</p>
+                      <p className="eyebrow">行路</p>
                       <h3>{roster.name || "名称未設定"}</h3>
                     </div>
                     <span>{roster.crewType || "乗務員"}</span>
