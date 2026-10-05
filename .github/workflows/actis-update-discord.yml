@@ -5,12 +5,64 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      test_notification:
+        description: "Discordへテスト文章を1回配信する"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
 
 jobs:
+  test-notify:
+    if: github.event_name == 'workflow_dispatch' && inputs.test_notification == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Discord test notification
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ -z "${DISCORD_WEBHOOK_URL:-}" ]; then
+            echo "DISCORD_WEBHOOK_URL is not configured."
+            exit 1
+          fi
+
+          python3 - <<'PY'
+          import json
+          import os
+          import urllib.request
+
+          payload = {
+              "username": "ACTIS Update",
+              "embeds": [{
+                  "title": "🚆 ACTIS Web アップデート（テスト）",
+                  "description": "これはACTISのDiscord更新通知のテスト配信です。\n\n実際のサイト更新ではありません。",
+                  "url": "https://actis-web.pages.dev/",
+                  "footer": {
+                      "text": "ACTIS Web v0.1.0 • テスト配信"
+                  }
+              }]
+          }
+
+          req = urllib.request.Request(
+              os.environ["DISCORD_WEBHOOK_URL"],
+              data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+              headers={"Content-Type": "application/json"},
+              method="POST"
+          )
+
+          with urllib.request.urlopen(req) as response:
+              if response.status >= 300:
+                  raise SystemExit(f"Discord returned HTTP {response.status}")
+          PY
+
   notify:
+    if: github.event_name != 'workflow_dispatch' || inputs.test_notification != true
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
