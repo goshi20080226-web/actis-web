@@ -115,7 +115,7 @@ jobs:
           """
 
           payload = {
-              "model": "gpt-5.6-mini",
+              "model": "gpt-5.6-sol",
               "input": prompt,
               "max_output_tokens": 700
           }
