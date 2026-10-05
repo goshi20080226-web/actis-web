@@ -419,7 +419,7 @@ function Datasets() {
         })
       }
 
-      const publicDataset = { ...dataset, shareId, sharedAt: Date.now() }
+      const publicDataset = { ...dataset, shareId, sharedAt: Date.now(), ownerUid: user.uid }
       delete publicDataset.id
 
       const updates = {
