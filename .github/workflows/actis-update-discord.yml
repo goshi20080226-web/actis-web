@@ -73,96 +73,46 @@ jobs:
           echo "変更コミット:"
           cat /tmp/changes.txt
 
-      - name: Generate Japanese update text
+      - name: Prepare Japanese update text
         if: steps.check.outputs.initialized == 'true' && steps.check.outputs.should_notify == 'true'
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          COMMIT_COUNT: ${{ steps.check.outputs.count }}
         shell: bash
         run: |
           set -euo pipefail
 
-          if [ -z "${OPENAI_API_KEY:-}" ]; then
-            echo "OPENAI_API_KEY is not configured."
-            exit 1
-          fi
-
           python3 - <<'PY'
-          import json
-          import os
-          import urllib.request
+          import subprocess
 
-          changes = open("/tmp/changes.txt", encoding="utf-8").read()
+          commits = subprocess.check_output(
+              ["git", "log", "--format=%s%x00%b%x00%H", "actis-update-notified..HEAD"],
+              text=True,
+              encoding="utf-8"
+          ).splitlines()
 
-          prompt = f"""あなたはACTIS Webのアップデート告知担当です。
-          以下は前回のDiscordアップデート告知以降に行われたGitコミットです。
-          利用者向けに日本語で簡潔なアップデート告知文を作成してください。
+          lines = []
+          for entry in commits:
+              parts = entry.split("\x00")
+              subject = parts[0].strip()
+              body = parts[1].strip() if len(parts) > 1 else ""
+              commit_hash = parts[2].strip()[:7] if len(parts) > 2 else ""
 
-          条件:
-          - 技術者向けのGit用語をそのまま並べない
-          - 実際に利用者に関係する変更を中心にまとめる
-          - 同じ内容はまとめる
-          - 変更が修正だけなら「修正・改善」としてまとめる
-          - 推測で存在しない機能を追加しない
-          - Markdownの箇条書きのみを返す
-          - 3〜7項目程度
-          - 各項目は短くする
+              if not subject:
+                  continue
 
-          コミット数: {os.environ["COMMIT_COUNT"]}
+              lines.append(f"・{subject}")
+              if body:
+                  for body_line in body.splitlines():
+                      body_line = body_line.strip()
+                      if body_line:
+                          lines.append(f"  {body_line}")
 
-          コミット:
-          {changes}
-          """
+          if not lines:
+              raise SystemExit("変更内容を取得できませんでした。")
 
-          payload = {
-              "model": "gpt-5.6-sol",
-              "input": prompt,
-              "max_output_tokens": 700
-          }
-
-          req = urllib.request.Request(
-              "https://api.openai.com/v1/responses",
-              data=json.dumps(payload).encode("utf-8"),
-              headers={
-                  "Authorization": "Bearer " + os.environ["OPENAI_API_KEY"],
-                  "Content-Type": "application/json"
-              },
-              method="POST"
-          )
-
-          import time
-          from urllib.error import HTTPError
-
-          data = None
-
-          for attempt in range(4):
-              try:
-                  with urllib.request.urlopen(req, timeout=60) as response:
-                      data = json.load(response)
-                  break
-              except HTTPError as error:
-                  body = error.read().decode("utf-8", errors="replace")
-                  if error.code == 429 and attempt < 3:
-                      retry_after = error.headers.get("Retry-After")
-                      try:
-                          wait = max(5, int(float(retry_after))) if retry_after else 10 * (attempt + 1)
-                      except ValueError:
-                          wait = 10 * (attempt + 1)
-                      print(f"OpenAI API returned 429. Retrying in {wait}s...")
-                      time.sleep(wait)
-                      continue
-                  print(f"OpenAI API error HTTP {error.code}: {body}")
-                  raise
-
-          if not data:
-              raise SystemExit("OpenAI returned no response data.")
-
-          text = data.get("output_text", "").strip()
-          if not text:
-              raise SystemExit("OpenAI returned no update text.")
-
-          open("/tmp/update.txt", "w", encoding="utf-8").write(text)
+          open("/tmp/update.txt", "w", encoding="utf-8").write("\n".join(lines))
           PY
+
+          echo "Discord通知内容:"
+          cat /tmp/update.txt
 
       - name: Send Discord notification
         if: steps.check.outputs.initialized == 'true' && steps.check.outputs.should_notify == 'true'
