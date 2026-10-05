@@ -31,21 +31,16 @@ function formatDate(value) {
     return "—"
   }
 
-
   const date =
     new Date(value)
-
 
   if (
     Number.isNaN(
       date.getTime()
     )
   ) {
-
     return "—"
-
   }
-
 
   return date.toLocaleString(
     "ja-JP",
@@ -57,7 +52,6 @@ function formatDate(value) {
       minute: "2-digit"
     }
   )
-
 }
 
 
@@ -72,13 +66,11 @@ function Datasets() {
   const navigate =
     useNavigate()
 
-
   const [
     datasets,
     setDatasets
   ] =
     useState([])
-
 
   const [
     loading,
@@ -86,13 +78,11 @@ function Datasets() {
   ] =
     useState(true)
 
-
   const [
     error,
     setError
   ] =
     useState("")
-
 
   const [
     editingId,
@@ -100,24 +90,17 @@ function Datasets() {
   ] =
     useState("")
 
-
   const [
     editingName,
     setEditingName
   ] =
     useState("")
 
-
   const [
     saving,
     setSaving
   ] =
     useState(false)
-
-
-  // ========================================
-  // データセット読み込み
-  // ========================================
 
   const loadDatasets =
     async () => {
@@ -127,10 +110,8 @@ function Datasets() {
         setLoading(true)
         setError("")
 
-
         const user =
           auth.currentUser
-
 
         if (!user) {
 
@@ -139,20 +120,15 @@ function Datasets() {
           )
 
           return
-
         }
-
 
         const snapshot =
           await get(
-
             ref(
               database,
               `users/${user.uid}/datasets`
             )
-
           )
-
 
         if (
           !snapshot.exists()
@@ -161,13 +137,10 @@ function Datasets() {
           setDatasets([])
 
           return
-
         }
-
 
         const data =
           snapshot.val()
-
 
         const list =
           Object.entries(
@@ -199,7 +172,6 @@ function Datasets() {
                 )
             )
 
-
         setDatasets(
           list
         )
@@ -212,7 +184,6 @@ function Datasets() {
           "Dataset load error:",
           err
         )
-
 
         setError(
           "データセットを取得できませんでした。"
@@ -236,10 +207,6 @@ function Datasets() {
   }, [])
 
 
-  // ========================================
-  // 名前変更開始
-  // ========================================
-
   const startEdit = (
     dataset
   ) => {
@@ -257,10 +224,6 @@ function Datasets() {
   }
 
 
-  // ========================================
-  // 名前変更キャンセル
-  // ========================================
-
   const cancelEdit = () => {
 
     setEditingId("")
@@ -268,10 +231,6 @@ function Datasets() {
 
   }
 
-
-  // ========================================
-  // 名前変更保存
-  // ========================================
 
   const saveName =
     async (
@@ -281,7 +240,6 @@ function Datasets() {
       const user =
         auth.currentUser
 
-
       if (!user) {
 
         setError(
@@ -289,15 +247,12 @@ function Datasets() {
         )
 
         return
-
       }
-
 
       const name =
         String(
           editingName || ""
         ).trim()
-
 
       if (!name) {
 
@@ -306,34 +261,24 @@ function Datasets() {
         )
 
         return
-
       }
-
 
       try {
 
         setSaving(true)
         setError("")
 
-
         await update(
-
           ref(
             database,
             `users/${user.uid}/datasets/${datasetId}`
           ),
-
           {
-
             name,
-
             updatedAt:
               Date.now()
-
           }
-
         )
-
 
         setDatasets(
           current =>
@@ -351,7 +296,6 @@ function Datasets() {
             )
         )
 
-
         cancelEdit()
 
       }
@@ -362,7 +306,6 @@ function Datasets() {
           "Dataset rename error:",
           err
         )
-
 
         setError(
           `名前変更に失敗しました: ${err.message}`
@@ -403,9 +346,13 @@ function Datasets() {
       const root = `users/${user.uid}`
       const trainsSnapshot = await get(ref(database, `${root}/trains`))
       const linesSnapshot = await get(ref(database, `${root}/lines`))
+      const crewRostersSnapshot = await get(
+        ref(database, `${root}/datasets/${dataset.id}/crewRosters`)
+      )
 
       const trains = {}
       const lines = {}
+      const crewRosters = {}
 
       if (trainsSnapshot.exists()) {
         Object.entries(trainsSnapshot.val()).forEach(([id, train]) => {
@@ -419,13 +366,23 @@ function Datasets() {
         })
       }
 
-      const publicDataset = { ...dataset, shareId, sharedAt: Date.now(), ownerUid: user.uid }
+      if (crewRostersSnapshot.exists()) {
+        Object.assign(crewRosters, crewRostersSnapshot.val() || {})
+      }
+
+      const publicDataset = {
+        ...dataset,
+        shareId,
+        sharedAt: Date.now(),
+        ownerUid: user.uid
+      }
       delete publicDataset.id
 
       const updates = {
         [`sharedDatasets/${shareId}/dataset`]: publicDataset,
         [`sharedDatasets/${shareId}/trains`]: trains,
         [`sharedDatasets/${shareId}/lines`]: lines,
+        [`sharedDatasets/${shareId}/crewRosters`]: crewRosters,
         [`users/${user.uid}/datasets/${dataset.id}/shareId`]: shareId
       }
 
@@ -459,7 +416,6 @@ function Datasets() {
       const user =
         auth.currentUser
 
-
       if (!user) {
 
         setError(
@@ -470,52 +426,33 @@ function Datasets() {
 
       }
 
-
       const name =
         dataset.name ||
         dataset.files?.[0]?.fileName ||
         "名称未設定ダイヤ"
-
 
       const confirmed =
         window.confirm(
           `「${name}」を削除しますか？\n\nこのダイヤに属する列車データもすべて削除されます。\nこの操作は元に戻せません。`
         )
 
-
       if (!confirmed) {
         return
       }
-
 
       try {
 
         setSaving(true)
         setError("")
 
-
-        /*
-         * ====================================
-         * 複数箇所を一括削除
-         * ====================================
-         */
-
         const root =
           `users/${user.uid}`
 
-
         const updates = {}
 
-
-        // データセット本体
         updates[
           `${root}/datasets/${dataset.id}`
         ] = null
-
-
-        // ==================================
-        // そのDatasetの列車を探す
-        // ==================================
 
         const trainsSnapshot =
           await get(
@@ -525,14 +462,12 @@ function Datasets() {
             )
           )
 
-
         if (
           trainsSnapshot.exists()
         ) {
 
           const trains =
             trainsSnapshot.val()
-
 
           Object.entries(
             trains
@@ -559,11 +494,6 @@ function Datasets() {
           )
 
         }
-
-
-        // ==================================
-        // そのDatasetの路線も削除
-        // ==================================
 
         const linesSnapshot =
           await get(
@@ -597,26 +527,12 @@ function Datasets() {
 
         }
 
-
-        /*
-         * ====================================
-         * 一括反映
-         * ====================================
-         */
-
         await update(
           ref(
             database
           ),
           updates
         )
-
-
-        /*
-         * ====================================
-         * 画面から削除
-         * ====================================
-         */
 
         setDatasets(
           current =>
@@ -643,7 +559,6 @@ function Datasets() {
 
         }
 
-
       }
 
       catch (err) {
@@ -652,7 +567,6 @@ function Datasets() {
           "Dataset delete error:",
           err
         )
-
 
         setError(
           `ダイヤの削除に失敗しました: ${err.message}`
@@ -669,35 +583,17 @@ function Datasets() {
     }
 
 
-  // ========================================
-  // Loading
-  // ========================================
-
   if (loading) {
 
     return (
-
       <div>
-
-        <h1>
-          ダイヤ一覧
-        </h1>
-
-
-        <p>
-          読み込み中...
-        </p>
-
+        <h1>ダイヤ一覧</h1>
+        <p>読み込み中...</p>
       </div>
-
     )
 
   }
 
-
-  // ========================================
-  // 表示
-  // ========================================
 
   return (
 
@@ -717,13 +613,11 @@ function Datasets() {
             ダイヤ一覧
           </h1>
 
-
           <p>
             アップロードしたOUD2データを管理できます。
           </p>
 
         </div>
-
 
         <button
           type="button"
@@ -732,39 +626,31 @@ function Datasets() {
               "/upload"
             )
           }
-          disabled={saving}
+          disabled={
+            saving
+          }
         >
-
           OUD2を追加
-
         </button>
 
       </div>
 
-
       {error && (
-
         <div
           className="dataset-error"
         >
-
           {error}
-
         </div>
-
       )}
-
 
       {datasets.length === 0 ? (
 
         <div
           className="datasets-empty"
         >
-
           <p>
             まだダイヤデータがありません。
           </p>
-
 
           <button
             type="button"
@@ -774,9 +660,7 @@ function Datasets() {
               )
             }
           >
-
             OUD2をアップロード
-
           </button>
 
         </div>
@@ -797,15 +681,12 @@ function Datasets() {
                   ? dataset.files
                   : []
 
-
               const firstFile =
                 files[0] || {}
-
 
               const isEditing =
                 editingId ===
                 dataset.id
-
 
               return (
 
@@ -813,7 +694,6 @@ function Datasets() {
                   key={
                     dataset.id
                   }
-
                   className="dataset-card"
                 >
 
@@ -839,7 +719,6 @@ function Datasets() {
                         autoFocus
                       />
 
-
                       <div
                         className="dataset-edit-buttons"
                       >
@@ -855,11 +734,8 @@ function Datasets() {
                             saving
                           }
                         >
-
                           保存
-
                         </button>
-
 
                         <button
                           type="button"
@@ -870,9 +746,7 @@ function Datasets() {
                             saving
                           }
                         >
-
                           キャンセル
-
                         </button>
 
                       </div>
@@ -903,27 +777,20 @@ function Datasets() {
                       >
 
                         <h2>
-
                           {dataset.name ||
                             firstFile.fileName ||
                             "名称未設定ダイヤ"}
-
                         </h2>
 
-
                         <p>
-
                           {dataset.railwayName ||
                             firstFile.railwayName ||
                             "路線名未設定"}
-
                         </p>
-
 
                         <div
                           className="dataset-card-info"
                         >
-
                           <span>
                             {formatDate(
                               dataset.updatedAt ||
@@ -931,20 +798,17 @@ function Datasets() {
                             )}
                           </span>
 
-
                           <span>
                             {dataset.fileCount ??
                               files.length}
                             {" ファイル"}
                           </span>
 
-
                           <span>
                             下り{" "}
                             {dataset.kudariCount ??
                               0}
                           </span>
-
 
                           <span>
                             上り{" "}
@@ -955,7 +819,6 @@ function Datasets() {
                         </div>
 
                       </button>
-
 
                       <div
                         className="dataset-card-actions"
@@ -974,11 +837,8 @@ function Datasets() {
                             saving
                           }
                         >
-
                           開く
-
                         </button>
-
 
                         <button
                           type="button"
@@ -991,9 +851,7 @@ function Datasets() {
                             saving
                           }
                         >
-
                           名前変更
-
                         </button>
 
                         <button
@@ -1007,11 +865,8 @@ function Datasets() {
                             saving
                           }
                         >
-
                           {dataset.shareId ? "共有URL再発行" : "共有URL"}
-
                         </button>
-
 
                         <button
                           type="button"
@@ -1025,9 +880,7 @@ function Datasets() {
                             saving
                           }
                         >
-
                           削除
-
                         </button>
 
                       </div>
@@ -1039,7 +892,6 @@ function Datasets() {
                 </div>
 
               )
-
             }
           )}
 
@@ -1052,6 +904,5 @@ function Datasets() {
   )
 
 }
-
 
 export default Datasets
