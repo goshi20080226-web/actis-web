@@ -1,0 +1,195 @@
+name: ACTIS Update Discord
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Check update size
+        id: check
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          TAG="actis-update-notified"
+
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            BASE="$TAG"
+            COUNT="$(git rev-list --count "$BASE..HEAD")"
+            echo "initialized=true" >> "$GITHUB_OUTPUT"
+          else
+            BASE=""
+            COUNT="0"
+            echo "initialized=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+
+          if [ "$COUNT" -ge 5 ]; then
+            echo "should_notify=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ -n "$BASE" ]; then
+            FEATURE_COUNT="$(git log --format='%s' "$BASE..HEAD" | grep -Eic '^(feat|feature|add|added|implement|implementation|追加|実装|新機能|機能追加)' || true)"
+          else
+            FEATURE_COUNT=0
+          fi
+
+          if [ "$FEATURE_COUNT" -ge 1 ]; then
+            echo "should_notify=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_notify=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Initialize notification marker
+        if: steps.check.outputs.initialized == 'false'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -f actis-update-notified "$GITHUB_SHA"
+          git push origin -f actis-update-notified
+
+      - name: Prepare change list
+        if: steps.check.outputs.initialized == 'true' && steps.check.outputs.should_notify == 'true'
+        shell: bash
+        run: |
+          git log --format='- %s%n  %b' "actis-update-notified..HEAD" > /tmp/changes.txt
+          echo "変更コミット:"
+          cat /tmp/changes.txt
+
+      - name: Generate Japanese update text
+        if: steps.check.outputs.initialized == 'true' && steps.check.outputs.should_notify == 'true'
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          COMMIT_COUNT: ${{ steps.check.outputs.count }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ -z "${OPENAI_API_KEY:-}" ]; then
+            echo "OPENAI_API_KEY is not configured."
+            exit 1
+          fi
+
+          python3 - <<'PY'
+          import json
+          import os
+          import urllib.request
+
+          changes = open("/tmp/changes.txt", encoding="utf-8").read()
+
+          prompt = f"""あなたはACTIS Webのアップデート告知担当です。
+          以下は前回のDiscordアップデート告知以降に行われたGitコミットです。
+          利用者向けに日本語で簡潔なアップデート告知文を作成してください。
+
+          条件:
+          - 技術者向けのGit用語をそのまま並べない
+          - 実際に利用者に関係する変更を中心にまとめる
+          - 同じ内容はまとめる
+          - 変更が修正だけなら「修正・改善」としてまとめる
+          - 推測で存在しない機能を追加しない
+          - Markdownの箇条書きのみを返す
+          - 3〜7項目程度
+          - 各項目は短くする
+
+          コミット数: {os.environ["COMMIT_COUNT"]}
+
+          コミット:
+          {changes}
+          """
+
+          payload = {
+              "model": "gpt-5.6-mini",
+              "input": prompt,
+              "max_output_tokens": 700
+          }
+
+          req = urllib.request.Request(
+              "https://api.openai.com/v1/responses",
+              data=json.dumps(payload).encode("utf-8"),
+              headers={
+                  "Authorization": "Bearer " + os.environ["OPENAI_API_KEY"],
+                  "Content-Type": "application/json"
+              },
+              method="POST"
+          )
+
+          with urllib.request.urlopen(req) as response:
+              data = json.load(response)
+
+          text = data.get("output_text", "").strip()
+          if not text:
+              raise SystemExit("OpenAI returned no update text.")
+
+          open("/tmp/update.txt", "w", encoding="utf-8").write(text)
+          PY
+
+      - name: Send Discord notification
+        if: steps.check.outputs.initialized == 'true' && steps.check.outputs.should_notify == 'true'
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          COMMIT_COUNT: ${{ steps.check.outputs.count }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ -z "${DISCORD_WEBHOOK_URL:-}" ]; then
+            echo "DISCORD_WEBHOOK_URL is not configured."
+            exit 1
+          fi
+
+          python3 - <<'PY'
+          import json
+          import os
+          import urllib.request
+
+          update = open("/tmp/update.txt", encoding="utf-8").read().strip()
+
+          payload = {
+              "username": "ACTIS Update",
+              "embeds": [{
+                  "title": "🚆 ACTIS Web アップデート",
+                  "description": update,
+                  "url": "https://actis-web.pages.dev/",
+                  "footer": {
+                      "text": f"ACTIS Web v0.1.0 • {os.environ['COMMIT_COUNT']}件の変更"
+                  }
+              }]
+          }
+
+          req = urllib.request.Request(
+              os.environ["DISCORD_WEBHOOK_URL"],
+              data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+              headers={"Content-Type": "application/json"},
+              method="POST"
+          )
+
+          with urllib.request.urlopen(req) as response:
+              if response.status >= 300:
+                  raise SystemExit(f"Discord returned HTTP {response.status}")
+          PY
+
+      - name: Move notification marker
+        if: steps.check.outputs.initialized == 'true' && steps.check.outputs.should_notify == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -f actis-update-notified "$GITHUB_SHA"
+          git push origin -f actis-update-notified
