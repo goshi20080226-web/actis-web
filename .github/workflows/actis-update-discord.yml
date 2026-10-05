@@ -110,12 +110,14 @@ jobs:
               sha, subject = line.split("\t", 1)
               lower = subject.lower().strip()
               if lower.startswith(internal_prefixes): continue
-              if any(k.lower() in lower or k in subject for k in surface_keywords): surface.append(sha.strip())
+              if lower.startswith("merge "): continue
+              surface.append(sha.strip())
           open("/tmp/surface_commits.txt", "w", encoding="utf-8").write("\n".join(surface))
           print(f"利用者向け変更: {len(surface)}件")
           PY
           SURFACE_COUNT="$(grep -c . /tmp/surface_commits.txt 2>/dev/null || true)"
           echo "surface_count=$SURFACE_COUNT" >> "$GITHUB_OUTPUT"
+          echo "count=$SURFACE_COUNT" >> "$GITHUB_OUTPUT"
           if [ "$SURFACE_COUNT" -ge 1 ]; then echo "should_notify=true" >> "$GITHUB_OUTPUT"; else echo "should_notify=false" >> "$GITHUB_OUTPUT"; fi
 
       - name: Initialize notification marker
@@ -185,12 +187,16 @@ jobs:
           import urllib.request
 
           update = open("/tmp/update.txt", encoding="utf-8").read().strip()
+          lines = [line.strip() for line in update.splitlines() if line.strip()]
+          description = "\n".join(f"• {line}" for line in lines)
+          if len(description) > 4000:
+              description = description[:3997] + "..."
 
           payload = {
               "username": "ACTIS Update",
               "embeds": [{
                   "title": "🚆 ACTIS Web アップデート",
-                  "description": update,
+                  "description": description,
                   "url": "https://actis-web.pages.dev/",
                   "footer": {
                       "text": f"ACTIS Web v0.1.0 • {os.environ['COMMIT_COUNT']}件の変更"
