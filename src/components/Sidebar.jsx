@@ -28,6 +28,7 @@ function Sidebar() {
 
       <div className="sidebar-footer">
         <Link to="/privacy">プライバシーポリシー</Link>
+        <Link to="/terms">利用規約</Link>
         <span>© 2026 ACTIS / goshi4058</span>
       </div>
     </aside>
