@@ -953,6 +953,345 @@ textarea:focus {
 
 
 /* =========================================================
+   Mobile layout
+========================================================= */
+
+@media (max-width: 760px) {
+  html,
+  body {
+    overflow-x: hidden;
+  }
+
+  .header {
+    min-height: 58px;
+    padding: 8px 12px;
+    gap: 10px;
+  }
+
+  .header-title h1 {
+    font-size: 20px;
+  }
+
+  .user-menu-button {
+    min-width: 42px;
+    width: 42px;
+    justify-content: center;
+    padding: 4px;
+  }
+
+  .user-menu-button .user-name,
+  .user-menu-button > span:last-child {
+    display: none;
+  }
+
+  .login-header-button {
+    min-width: 82px;
+    min-height: 38px;
+    padding: 0 13px;
+  }
+
+  .layout {
+    min-height: calc(100vh - 58px);
+    display: block;
+  }
+
+  .sidebar {
+    position: sticky;
+    top: 58px;
+    z-index: 90;
+
+    width: 100%;
+    height: auto;
+    min-height: 0;
+
+    display: flex;
+    flex-direction: row;
+    gap: 6px;
+
+    padding: 7px 8px;
+
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+
+    scrollbar-width: none;
+  }
+
+  .sidebar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .sidebar a {
+    flex: 0 0 auto;
+    min-height: 38px;
+    padding: 0 13px;
+    border-radius: 19px;
+    background: #17242d;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  .sidebar a.active {
+    background: #1f8a70;
+    box-shadow: none;
+  }
+
+  .sidebar-footer {
+    display: none;
+  }
+
+  .content {
+    min-height: calc(100vh - 58px);
+    padding: 18px 12px 30px;
+  }
+
+  .page-hero,
+  .lines-header,
+  .trains-header,
+  .staff-header,
+  .datasets-header {
+    gap: 14px;
+    margin-bottom: 16px;
+    padding-bottom: 14px;
+  }
+
+  .page-hero h1,
+  .lines-header h1,
+  .trains-header h1,
+  .staff-header h1,
+  .datasets-header h1 {
+    font-size: 23px;
+  }
+
+  .page-hero p,
+  .lines-header p,
+  .trains-header p,
+  .staff-header p,
+  .datasets-header p {
+    font-size: 12px;
+  }
+
+  .hero-actions {
+    width: 100%;
+  }
+
+  .hero-actions > * {
+    width: 100%;
+  }
+
+  .dataset-selector {
+    margin-bottom: 12px;
+  }
+
+  .dataset-selector label {
+    gap: 6px;
+  }
+
+  .dataset-selector select {
+    min-height: 42px;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    min-height: 42px;
+  }
+
+  .status-grid,
+  .work-area,
+  .quick-grid {
+    max-width: none;
+  }
+
+  .status-grid {
+    gap: 8px;
+  }
+
+  .status-card {
+    min-height: 68px;
+    padding: 12px 14px;
+  }
+
+  .status-card strong {
+    font-size: 26px;
+  }
+
+  .work-area {
+    margin-top: 12px;
+  }
+
+  .panel {
+    margin-bottom: 10px;
+  }
+
+  .panel-header {
+    padding: 13px 14px;
+  }
+
+  .panel-header h2 {
+    font-size: 17px;
+  }
+
+  .dataset-summary {
+    padding: 10px 14px;
+  }
+
+  .dataset-summary > div {
+    grid-template-columns: 82px minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .quick-grid {
+    margin-top: 12px;
+    gap: 7px;
+  }
+
+  .quick-card {
+    min-height: 58px;
+    padding: 10px 13px;
+  }
+
+  .quick-card strong {
+    font-size: 13px;
+  }
+
+  .quick-card span {
+    max-width: 48%;
+    text-align: right;
+    line-height: 1.45;
+  }
+
+  .official-discord-card {
+    text-decoration: none;
+  }
+
+  .passenger-timetable-page {
+    max-width: none;
+  }
+
+  .passenger-timetable-header h1 {
+    font-size: 23px;
+  }
+
+  .passenger-timetable-controls {
+    padding: 12px;
+  }
+
+  .passenger-timetable-title {
+    padding: 12px 13px;
+  }
+
+  .passenger-timetable-title strong {
+    font-size: 19px;
+  }
+
+  .passenger-hour-section {
+    grid-template-columns: 48px minmax(0, 1fr);
+  }
+
+  .passenger-hour {
+    padding: 10px 6px;
+    font-size: 16px;
+  }
+
+  .passenger-hour-trains {
+    grid-template-columns: 1fr;
+  }
+
+  .passenger-train-row {
+    grid-template-columns: 55px 48px minmax(0, 1fr);
+    min-height: 44px;
+    padding: 4px 7px;
+  }
+
+  .passenger-time {
+    font-size: 15px;
+  }
+
+  .passenger-type {
+    font-size: 10px;
+  }
+
+  .passenger-destination {
+    font-size: 11px;
+  }
+
+  .user-menu-dropdown {
+    position: fixed;
+    top: 66px;
+    right: 10px;
+    width: min(300px, calc(100vw - 20px));
+  }
+}
+
+@media (max-width: 430px) {
+  .content {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  .header {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  .header-title h1 {
+    font-size: 18px;
+  }
+
+  .sidebar {
+    padding-left: 6px;
+    padding-right: 6px;
+  }
+
+  .sidebar a {
+    min-height: 36px;
+    padding: 0 11px;
+    font-size: 11px;
+  }
+
+  .status-card {
+    min-height: 62px;
+  }
+
+  .status-card p {
+    font-size: 12px;
+  }
+
+  .status-card strong {
+    font-size: 23px;
+  }
+
+  .page-hero h1,
+  .lines-header h1,
+  .trains-header h1,
+  .staff-header h1,
+  .datasets-header h1 {
+    font-size: 21px;
+  }
+
+  .dataset-summary > div {
+    grid-template-columns: 70px minmax(0, 1fr);
+  }
+
+  .quick-card {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .quick-card span {
+    max-width: none;
+    text-align: left;
+  }
+
+  .passenger-train-row {
+    grid-template-columns: 52px 45px minmax(0, 1fr);
+  }
+}
+
+/* =========================================================
    Sidebar footer
 ========================================================= */
 
