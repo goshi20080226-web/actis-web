@@ -147,21 +147,6 @@ function Home() {
           </div>
         </article>
 
-        <article className="panel">
-          <div className="panel-header compact">
-            <div>
-              <p className="eyebrow">Workflow</p>
-              <h2>運営手順</h2>
-            </div>
-          </div>
-
-          <ol className="workflow-list">
-            <li>OUD2をアップロード</li>
-            <li>作成されたDatasetを選択</li>
-            <li>運用・スタフ・時刻表を確認</li>
-            <li>不要なDatasetを管理画面で整理</li>
-          </ol>
-        </article>
       </section>
 
       <section className="quick-grid" aria-label="主要機能">
@@ -178,19 +163,15 @@ function Home() {
         ))}
       </section>
 
-      <section className="official-links" aria-label="公式リンク">
+      <section className="quick-grid" aria-label="公式リンク">
         <a
-          className="official-discord-card"
+          className="quick-card official-discord-card"
           href="https://discord.gg/vda3nRvfQd"
           target="_blank"
           rel="noopener noreferrer"
         >
-          <div>
-            <p className="eyebrow">Official Community</p>
-            <strong>公式Discordサーバー</strong>
-            <span>ACTISに関するお問い合わせや情報交換はこちら</span>
-          </div>
-          <span aria-hidden="true">↗</span>
+          <strong>公式Discordサーバー</strong>
+          <span>ACTISに関するお問い合わせや情報交換はこちら</span>
         </a>
       </section>
     </div>
