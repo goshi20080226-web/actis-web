@@ -142,7 +142,19 @@ function UserMenu() {
    */
 
   if (!user) {
-    return null
+    return (
+      <div
+        className="user-menu"
+      >
+        <button
+          type="button"
+          className="login-header-button"
+          onClick={() => navigate("/login")}
+        >
+          ログイン
+        </button>
+      </div>
+    )
   }
 
 
