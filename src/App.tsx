@@ -16,6 +16,7 @@ import DepartureBoard from './pages/DepartureBoard.jsx'
 import Trains from './pages/trains.jsx'
 import Upload from './pages/upload.jsx'
 import AuthGuard from './components/AuthGuard.jsx'
+import AdminGuard from './components/AdminGuard.jsx'
 import Header from './components/Header.jsx'
 import Sidebar from './components/Sidebar.jsx'
 import { DatasetProvider } from './context/DatasetContext.jsx'
@@ -74,25 +75,25 @@ function App() {
                 <Route
                   path="/roster"
                   element={
-                    <AuthGuard>
+                    <AdminGuard>
                       <Roster />
-                    </AuthGuard>
+                    </AdminGuard>
                   }
                 />
                 <Route
                   path="/staff"
                   element={
-                    <AuthGuard>
+                    <AdminGuard>
                       <StaffRoster />
-                    </AuthGuard>
+                    </AdminGuard>
                   }
                 />
                 <Route
                   path="/staff/train/:trainNo"
                   element={
-                    <AuthGuard>
+                    <AdminGuard>
                       <Staff />
-                    </AuthGuard>
+                    </AdminGuard>
                   }
                 />
                 <Route
@@ -106,9 +107,9 @@ function App() {
                 <Route
                   path="/staff/operation/:operationName"
                   element={
-                    <AuthGuard>
+                    <AdminGuard>
                       <StaffOperation />
-                    </AuthGuard>
+                    </AdminGuard>
                   }
                 />
                 <Route
@@ -126,9 +127,9 @@ function App() {
                 <Route
                   path="/diagram"
                   element={
-                    <AuthGuard>
+                    <AdminGuard>
                       <Diagram />
-                    </AuthGuard>
+                    </AdminGuard>
                   }
                 />
                 <Route
