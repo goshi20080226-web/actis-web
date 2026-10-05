@@ -11,6 +11,11 @@ on:
         required: false
         default: false
         type: boolean
+      previous_update:
+        description: "直前のアップデート内容を1回配信する"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -71,8 +76,41 @@ jobs:
               raise
           PY
 
+  previous-notify:
+    if: github.event_name == 'workflow_dispatch' && inputs.previous_update == true && inputs.test_notification != true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - name: Send previous update
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${DISCORD_WEBHOOK_URL:-}" ]; then exit 1; fi
+          TAG="actis-update-notified"
+          if ! git rev-parse "$TAG" >/dev/null 2>&1; then echo "通知済みアップデートの記録がありません。"; exit 1; fi
+          PREV="$(git rev-parse "$TAG^")"
+          python3 - <<PY
+          import json, os, subprocess, urllib.request
+          prev = "${PREV}"
+          tag = "${TAG}"
+          raw = subprocess.check_output(["git","log","--format=%H%x09%s",prev+".."+tag], text=True, encoding="utf-8")
+          lines = [line.split("\t",1)[1].strip() for line in raw.splitlines() if "\t" in line]
+          description = "\n".join("• "+x for x in lines) or "直前のアップデート内容を取得できませんでした。"
+          if len(description) > 4000: description = description[:3997] + "..."
+          payload = {"username":"ACTIS Update","embeds":[{"title":"🚆 ACTIS Web 直前アップデート","description":description,"url":"https://actis-web.pages.dev/","footer":{"text":"ACTIS Web • 直前アップデート配信"}}]}
+          req=urllib.request.Request(os.environ["DISCORD_WEBHOOK_URL"],data=json.dumps(payload,ensure_ascii=False).encode("utf-8"),headers={"Content-Type":"application/json"},method="POST")
+          with urllib.request.urlopen(req) as response:
+              if response.status >= 300: raise SystemExit(f"Discord returned HTTP {response.status}")
+          PY
+
   notify:
-    if: github.event_name != 'workflow_dispatch' || inputs.test_notification != true
+    if: github.event_name != 'workflow_dispatch' || (inputs.test_notification != true && inputs.previous_update != true)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
