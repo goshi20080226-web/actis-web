@@ -20,6 +20,7 @@ import Header from './components/Header.jsx'
 import Sidebar from './components/Sidebar.jsx'
 import { DatasetProvider } from './context/DatasetContext.jsx'
 import Privacy from './pages/Privacy.jsx'
+import Terms from './pages/Terms.jsx'
 import './App.css'
 
 function App() {
@@ -35,6 +36,7 @@ function App() {
             <main className="content">
               <Routes>
                 <Route path="/privacy" element={<Privacy />} />
+                <Route path="/terms" element={<Terms />} />
                 <Route path="/" element={<Home />} />
                 <Route path="/login" element={<Login />} />
                 <Route
