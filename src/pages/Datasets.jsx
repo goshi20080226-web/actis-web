@@ -398,7 +398,7 @@ function Datasets() {
       const shareId =
         typeof crypto !== "undefined" && crypto.randomUUID
           ? crypto.randomUUID().replace(/-/g, "")
-          : ${Date.now()}_${Math.random().toString(36).slice(2)}
+          : `${Date.now()}_${Math.random().toString(36).slice(2)}`
 
       const root = `users/${user.uid}`
       const trainsSnapshot = await get(ref(database, `${root}/trains`))
