@@ -931,10 +931,11 @@ function Timetable() {
         source.forEach(
           station => {
 
+            // /timetable の駅名は OUD2 の Ekimei をそのまま使用する。
             const name =
               String(
+                station?.Ekimei ||
                 station?.name ||
-                station?.shortName ||
                 ""
               ).trim()
 
@@ -943,12 +944,7 @@ function Timetable() {
             }
 
             const shortName =
-              String(
-                station?.shortName ||
-                station?.timeName ||
-                station?.EkimeiJikokuRyaku ||
-                name
-              ).trim()
+              name
 
             if (
               seen.has(name)
@@ -1376,7 +1372,7 @@ function Timetable() {
                   >
 
                     {
-                      station.shortName
+                      station.name
                     }
 
                   </option>
@@ -1444,11 +1440,6 @@ function Timetable() {
 
           <strong>
             {
-              stations.find(
-                station =>
-                  station.name ===
-                  selectedStation
-              )?.shortName ||
               selectedStation ||
               "駅"
             }
