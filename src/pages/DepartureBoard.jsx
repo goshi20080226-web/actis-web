@@ -34,65 +34,79 @@ const isRouteStation=s=>{
   return type!=="0"&&type!=="3";
 }
 const nextMessage=(t,n)=>{
-  const a=Array.isArray(t?.stopGuide)?t.stopGuide:[];
-  if(!a.length)return"";
-  const i=a.findIndex(s=>match(s,n));
-  if(i<0)return"";
+  const guide=Array.isArray(t?.stopGuide)?t.stopGuide:[]
+  const route=Array.isArray(t?.stations)?t.stations:[]
+  if(!guide.length)return""
 
-  // 通過駅(stopType=2)は時刻を持たないため、時刻の有無では絞らない。
-  // 列車が実際に走る区間の終端までを対象にする。
-  let endIndex=-1;
-  for(let j=a.length-1;j>=i+1;j--){
-    if(isRouteStation(a[j])){endIndex=j;break}
-  }
-  if(endIndex<i+1)return"";
+  // 発車標で選択している駅を「列車の実際の駅順」から特定する。
+  // stopGuide側の同名駅を単純にfindIndexすると、途中駅で案内の起点が
+  // ずれる可能性があるため、まず列車のstationsを基準にする。
+  let stationIndex=route.findIndex(s=>match(s,n))
+  let guideIndex=-1
 
-  const future=a.slice(i+1,endIndex+1);
-  const stopFlags=future.map(isStop);
-  const stopCount=stopFlags.filter(Boolean).length;
-  if(!stopCount)return"";
-  if(stopCount===future.length)return"各駅に止まります";
-
-  const runs=[];
-  let runStart=0;
-  for(let j=0;j<stopFlags.length;j++){
-    if(j===stopFlags.length-1||stopFlags[j+1]!==stopFlags[j]){
-      runs.push({
-        stop:stopFlags[j],
-        start:runStart,
-        end:j,
-        length:j-runStart+1
-      });
-      runStart=j+1;
+  if(stationIndex>=0){
+    // stopGuideとstationsが同じ駅順で対応している場合は、その位置を優先。
+    if(stationIndex<guide.length && match(guide[stationIndex],n)){
+      guideIndex=stationIndex
+    }else{
+      // 対応位置がずれるデータでは、現在駅より前の候補を除外して検索する。
+      guideIndex=guide.findIndex((s,i)=>i>=stationIndex&&match(s,n))
     }
   }
 
-  const firstRun=runs[0]?.stop?runs[0]:null;
-  const lastRun=runs[runs.length-1]?.stop?runs[runs.length-1]:null;
-  const prefix3=firstRun&&firstRun.start===0&&firstRun.length>=3;
-  const suffix3=lastRun&&lastRun.end===future.length-1&&lastRun.length>=3;
+  if(guideIndex<0){
+    guideIndex=guide.findIndex(s=>match(s,n))
+  }
+  if(guideIndex<0)return""
 
-  const stopNames=future.filter(isStop).map(s=>s.name||s.timeName||"").filter(Boolean);
+  // 現在駅より前の駅は案内対象に絶対に含めない。
+  let endIndex=-1
+  for(let j=guide.length-1;j>guideIndex;j--){
+    if(isRouteStation(guide[j])){endIndex=j;break}
+  }
+  if(endIndex<=guideIndex)return""
+
+  const future=guide.slice(guideIndex+1,endIndex+1)
+  const stopFlags=future.map(isStop)
+  const stopCount=stopFlags.filter(Boolean).length
+  if(!stopCount)return""
+  if(stopCount===future.length)return"各駅に止まります"
+
+  const runs=[]
+  let runStart=0
+  for(let j=0;j<stopFlags.length;j++){
+    if(j===stopFlags.length-1||stopFlags[j+1]!==stopFlags[j]){
+      runs.push({stop:stopFlags[j],start:runStart,end:j,length:j-runStart+1})
+      runStart=j+1
+    }
+  }
+
+  const firstRun=runs[0]?.stop?runs[0]:null
+  const lastRun=runs[runs.length-1]?.stop?runs[runs.length-1]:null
+  const prefix3=firstRun&&firstRun.start===0&&firstRun.length>=3
+  const suffix3=lastRun&&lastRun.end===future.length-1&&lastRun.length>=3
+
+  const stopNames=future.filter(isStop).map(s=>s.name||s.timeName||"").filter(Boolean)
 
   if(prefix3&&!suffix3){
-    const prefixNames=future.slice(firstRun.start,firstRun.end+1).filter(isStop).map(s=>s.name||s.timeName||"").filter(Boolean);
-    const afterNames=future.slice(firstRun.end+1).filter(isStop).map(s=>s.name||s.timeName||"").filter(Boolean);
-    const prefixEnd=prefixNames.at(-1);
+    const prefixNames=future.slice(firstRun.start,firstRun.end+1).filter(isStop).map(s=>s.name||s.timeName||"").filter(Boolean)
+    const afterNames=future.slice(firstRun.end+1).filter(isStop).map(s=>s.name||s.timeName||"").filter(Boolean)
+    const prefixEnd=prefixNames.at(-1)
     return afterNames.length
       ?"停車駅は、"+prefixEnd+"までの各駅と、"+afterNames.join("、")+"です"
-      :"停車駅は、"+prefixEnd+"までの各駅です";
+      :"停車駅は、"+prefixEnd+"までの各駅です"
   }
 
   if(suffix3&&!prefix3){
-    const beforeNames=future.slice(0,lastRun.start).filter(isStop).map(s=>s.name||s.timeName||"").filter(Boolean);
-    const suffixNames=future.slice(lastRun.start).filter(isStop).map(s=>s.name||s.timeName||"").filter(Boolean);
-    const suffixStart=suffixNames[0];
+    const beforeNames=future.slice(0,lastRun.start).filter(isStop).map(s=>s.name||s.timeName||"").filter(Boolean)
+    const suffixNames=future.slice(lastRun.start).filter(isStop).map(s=>s.name||s.timeName||"").filter(Boolean)
+    const suffixStart=suffixNames[0]
     return beforeNames.length
       ?"停車駅は、"+beforeNames.join("、")+"と、"+suffixStart+"から先の各駅です"
-      :"停車駅は、"+suffixStart+"から先の各駅です";
+      :"停車駅は、"+suffixStart+"から先の各駅です"
   }
 
-  return"停車駅は、"+stopNames.join("、")+"です";
+  return"停車駅は、"+stopNames.join("、")+"です"
 }
 
 
