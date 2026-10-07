@@ -424,6 +424,12 @@ function Staff() {
     searchParams.get("dataset") ||
     ""
 
+  // 行路別スタフから開いた場合のみ、対象の行路を明示する。
+  // 列車一覧から開いた場合は rosterId がないため従来どおり表示する。
+  const rosterIdFromUrl =
+    searchParams.get("rosterId") ||
+    ""
+
 
   const [
     train,
@@ -636,7 +642,15 @@ function Staff() {
                 items: Array.isArray(roster?.items) ? roster.items : []
               }))
 
-              for (const [rosterId, roster] of Object.entries(rosterValue)) {
+              // 行路別スタフから開いた場合は、URLで指定された行路を優先する。
+              // 列車一覧から開いた場合は rosterId がないため、従来どおり
+              // 現在の列車を含む最初の行路を参照する。
+              const rosterEntries = Object.entries(rosterValue)
+              const orderedRosterEntries = rosterIdFromUrl
+                ? rosterEntries.filter(([rosterId]) => String(rosterId) === String(rosterIdFromUrl))
+                : rosterEntries
+
+              for (const [rosterId, roster] of orderedRosterEntries) {
                 const items = Array.isArray(roster?.items) ? roster.items : []
                 const itemIndex = items.findIndex(item =>
                   item?.type === "train" &&
@@ -647,7 +661,7 @@ function Staff() {
                   ? itemIndex
                   : items.findIndex(item =>
                       item?.type === "train" &&
-                      String(item?.trainNo || "") === String(data.trainNo || "")
+                      String(item?.trainNo || "").trim() === String(data.trainNo || "").trim()
                     )
 
                 if (fallbackIndex >= 0) {
@@ -755,7 +769,7 @@ function Staff() {
             )
 
 
-          const operatingStations =
+          let operatingStations =
             stations.filter(
               station =>
                 station.stopType !==
@@ -763,6 +777,50 @@ function Staff() {
                 station.stopType !==
                   "3"
             )
+
+          // 行路別スタフでは、乗務員交代駅を境界として
+          // 「自分の行路が担当する区間」だけを表示する。
+          // rosterId がない場合（列車一覧から開いた場合）は従来どおり全区間を表示。
+          if (rosterIdFromUrl && matchedRoster) {
+            const rosterItem = matchedRoster.items?.[matchedRoster.itemIndex] || null
+            const beforeChangeStation = String(rosterItem?.beforeChangeStation || "").trim()
+            const afterChangeStation = String(rosterItem?.afterChangeStation || "").trim()
+
+            const stationMatches = (station, target) => {
+              if (!target) return false
+              const values = [
+                station?.name,
+                station?.shortName,
+                station?.timeName,
+                station?.Ekimei,
+                station?.EkimeiJikokuRyaku
+              ]
+                .map(value => String(value ?? "").trim())
+                .filter(Boolean)
+              return values.includes(target)
+            }
+
+            let segmentStart = 0
+            let segmentEnd = operatingStations.length - 1
+
+            if (beforeChangeStation) {
+              const index = operatingStations.findIndex(station =>
+                stationMatches(station, beforeChangeStation)
+              )
+              if (index >= 0) segmentStart = index
+            }
+
+            if (afterChangeStation) {
+              const index = operatingStations.findIndex(station =>
+                stationMatches(station, afterChangeStation)
+              )
+              if (index >= 0) segmentEnd = index
+            }
+
+            if (segmentStart <= segmentEnd) {
+              operatingStations = operatingStations.slice(segmentStart, segmentEnd + 1)
+            }
+          }
 
 
           let start =
@@ -958,7 +1016,7 @@ function Staff() {
 
     }
 
-  }, [trainId, trainNo, datasetFromUrl, selectedDatasetId])
+  }, [trainId, trainNo, datasetFromUrl, rosterIdFromUrl, selectedDatasetId])
 
 
   if (
