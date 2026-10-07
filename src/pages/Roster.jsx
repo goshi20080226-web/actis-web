@@ -40,7 +40,7 @@ function findTrainStation(train, stationName) {
 }
 
 function trainTime(train, rosterItem = null) {
-  const beforeStation = findTrainStation(train, rosterItem?.beforeChangeStation)
+  const beforeStation = findTrainStation(train, rosterItem?.startDutyStation)
   if (beforeStation) {
     return getStationTime(beforeStation, "departure")
   }
@@ -56,12 +56,12 @@ function trainTime(train, rosterItem = null) {
 }
 
 function trainEndTime(train, rosterItem = null) {
-  const afterStation = findTrainStation(train, rosterItem?.afterChangeStation)
+  const afterStation = findTrainStation(train, rosterItem?.endDutyStation)
   if (afterStation) {
     return getStationTime(afterStation, "arrival")
   }
 
-  const beforeStation = findTrainStation(train, rosterItem?.beforeChangeStation)
+  const beforeStation = findTrainStation(train, rosterItem?.startDutyStation)
   if (beforeStation) {
     return getStationTime(beforeStation, "departure")
   }
@@ -259,8 +259,8 @@ function Roster() {
         type: "train",
         trainId: train.id,
         trainNo: train.trainNo || "",
-        beforeChangeStation: "",
-        afterChangeStation: "",
+        startDutyStation: "",
+        endDutyStation: "",
         addedAt: Date.now()
       }
     ])
@@ -451,25 +451,25 @@ function Roster() {
                             <div className="train-change-menu">
                               <div className="train-change-menu-title">乗務員交代</div>
                               <div className="train-change-fields">
-                                <label>前
+                                <label>乗務開始駅
                                   <select
-                                    value={item?.beforeChangeStation || ""}
-                                    onChange={e => updateTrainChangeStation(index, "beforeChangeStation", e.target.value)}
+                                    value={item?.startDutyStation || ""}
+                                    onChange={e => updateTrainChangeStation(index, "startDutyStation", e.target.value)}
                                   >
                                     <option value="">交代なし</option>
                                     {getTrainStopStations(train).map(station => (
-                                      <option key={`before-${station.name}`} value={station.name}>{station.name}</option>
+                                      <option key={`start-${station.name}`} value={station.name}>{station.name}</option>
                                     ))}
                                   </select>
                                 </label>
-                                <label>後
+                                <label>乗務終了駅
                                   <select
-                                    value={item?.afterChangeStation || ""}
-                                    onChange={e => updateTrainChangeStation(index, "afterChangeStation", e.target.value)}
+                                    value={item?.endDutyStation || ""}
+                                    onChange={e => updateTrainChangeStation(index, "endDutyStation", e.target.value)}
                                   >
                                     <option value="">交代なし</option>
                                     {getTrainStopStations(train).map(station => (
-                                      <option key={`after-${station.name}`} value={station.name}>{station.name}</option>
+                                      <option key={`end-${station.name}`} value={station.name}>{station.name}</option>
                                     ))}
                                   </select>
                                 </label>
