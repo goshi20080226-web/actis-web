@@ -1153,7 +1153,7 @@ function Staff() {
     if (after) {
       const names = findOtherRosterNames(after, "after")
       const text = names.length
-        ? `乗務員交代（${names.join(" / ")}から）`
+        ? `乗務員交代（${names.join(" / ")}へ）`
         : "乗務員交代"
       result[after] = result[after]
         ? `${result[after]} / ${text}`
