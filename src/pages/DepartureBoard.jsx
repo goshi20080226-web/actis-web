@@ -5,6 +5,7 @@ import {auth,database} from "../firebase/config"
 import {useDataset} from "../context/DatasetContext"
 import DatasetSelector from "../components/dataset/DatasetSelector"
 import "./DepartureBoard.css"
+import { getWaitAndConnectionRelations } from "../utils/trainRelations"
 
 const userReady=()=>new Promise(resolve=>{
   if(auth.currentUser)return resolve(auth.currentUser)
@@ -21,6 +22,28 @@ const match=(s,n)=>[s?.name,s?.shortName,s?.timeName,s?.EkimeiJikokuRyaku].filte
 const stationOf=(t,n)=>(Array.isArray(t?.stations)?t.stations:[]).find(s=>match(s,n))
 const destination=t=>t?.destination||t?.finalDest||t?.stations?.at(-1)?.name||"—"
 const typeColor=(t,three)=>{if(three){const n=String(t?.type||"普通");if(/特急|快急|急行/.test(n))return"#f00";if(/快速|準急|通急/.test(n))return"#0f0";return"#f90"}return color(t?.trainTypeColor||t?.JikokuhyouMojiColor||t?.typeColor)}
+
+const relationMessage=(train,trains)=>{
+  const relations=getWaitAndConnectionRelations(train,trains)
+  const all=Object.values(relations).flat()
+  const waits=all.filter(x=>x.kind==="wait"||x.kind==="wait-pass")
+  const connections=all.filter(x=>x.kind==="connection")
+  const makeWait=(items)=>items.map(x=>({
+    station:x.stationName,
+    type:x.trainType||"普通",
+    color:x.trainTypeColor||"",
+    dest:x.destination||"—",
+    suffix:x.kind==="wait-pass"?"の通過待ち":"の待ち合わせ"
+  }))
+  const waitParts=makeWait(waits)
+  const connectionParts=connections.map(x=>({
+    station:x.stationName,
+    type:x.trainType||"普通",
+    color:x.trainTypeColor||"",
+    dest:x.destination||"—"
+  }))
+  return {waitParts,connectionParts}
+}
 const isStop=s=>{
   if(!s)return false;
   if(s.isPass===true)return false;
@@ -203,7 +226,8 @@ export default function DepartureBoard(){
         track:s.track||s.trackName||"",
         cars:t.cars||t.carCount||t.carsCount||"",
         msg:nextMessage(t,station),
-        color:typeColor(t,led==="3color")
+        color:typeColor(t,led==="3color"),
+        relations:relationMessage(t,trains)
       }
     })
     .filter(Boolean)
@@ -285,7 +309,35 @@ export default function DepartureBoard(){
             <span>{x.dest}</span>
             {cars&&<span>{x.t.cars||x.t.carCount||"—"}</span>}
             <span>{x.track||"—"}</span>
-            <span className="departure-message"><span className="departure-message-track">{x.msg}</span></span>
+            <span className="departure-message">
+              <span className="departure-message-track">
+                {x.msg && <>{x.msg}</>}
+                {x.relations.waitParts.length > 0 && (
+                  <span className="departure-relation-text">
+                    {x.relations.waitParts.map((item, i) => (
+                      <span key={`wait-${i}`}>
+                        {i > 0 ? "、" : ""}{item.station}で
+                        <span style={item.color ? { color: item.color } : undefined}>{item.type}</span>{" "}
+                        {item.dest}行き{item.suffix}
+                      </span>
+                    ))}
+                    <span>をいたします。</span>
+                  </span>
+                )}
+                {x.relations.connectionParts.length > 0 && (
+                  <span className="departure-relation-text">
+                    {x.relations.connectionParts.map((item, i) => (
+                      <span key={`connection-${i}`}>
+                        {i > 0 ? "、" : ""}{item.station}で
+                        <span style={item.color ? { color: item.color } : undefined}>{item.type}</span>{" "}
+                        {item.dest}行き
+                      </span>
+                    ))}
+                    <span>にお乗り換えができます。</span>
+                  </span>
+                )}
+              </span>
+            </span>
           </div>)}
           {Array.from({length:3-rows.length},(_,i)=><div className={"departure-row blank "+(cars?"cars":"")} key={i}/>)}
         </section>
