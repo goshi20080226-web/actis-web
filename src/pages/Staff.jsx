@@ -783,8 +783,8 @@ function Staff() {
           // rosterId がない場合（列車一覧から開いた場合）は従来どおり全区間を表示。
           if (rosterIdFromUrl && matchedRoster) {
             const rosterItem = matchedRoster.items?.[matchedRoster.itemIndex] || null
-            const beforeChangeStation = String(rosterItem?.beforeChangeStation || "").trim()
-            const afterChangeStation = String(rosterItem?.afterChangeStation || "").trim()
+            const startDutyStation = String(rosterItem?.startDutyStation || "").trim()
+            const endDutyStation = String(rosterItem?.endDutyStation || "").trim()
 
             const stationMatches = (station, target) => {
               if (!target) return false
@@ -803,16 +803,16 @@ function Staff() {
             let segmentStart = 0
             let segmentEnd = operatingStations.length - 1
 
-            if (beforeChangeStation) {
+            if (startDutyStation) {
               const index = operatingStations.findIndex(station =>
-                stationMatches(station, beforeChangeStation)
+                stationMatches(station, startDutyStation)
               )
               if (index >= 0) segmentStart = index
             }
 
-            if (afterChangeStation) {
+            if (endDutyStation) {
               const index = operatingStations.findIndex(station =>
-                stationMatches(station, afterChangeStation)
+                stationMatches(station, endDutyStation)
               )
               if (index >= 0) segmentEnd = index
             }
@@ -1125,10 +1125,10 @@ function Staff() {
           if (!sameTrain) return false
 
           if (mode === "before") {
-            return String(item?.afterChangeStation || "").trim() === station
+            return String(item?.endDutyStation || "").trim() === station
           }
 
-          return String(item?.beforeChangeStation || "").trim() === station
+          return String(item?.startDutyStation || "").trim() === station
         })
 
         if (hasMatchingExchange) {
@@ -1140,8 +1140,8 @@ function Staff() {
       return names
     }
 
-    const before = String(currentRosterItem?.beforeChangeStation || "").trim()
-    const after = String(currentRosterItem?.afterChangeStation || "").trim()
+    const before = String(currentRosterItem?.startDutyStation || "").trim()
+    const after = String(currentRosterItem?.endDutyStation || "").trim()
 
     if (before) {
       const names = findOtherRosterNames(before, "before")
