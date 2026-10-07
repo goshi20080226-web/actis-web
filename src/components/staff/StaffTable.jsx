@@ -147,7 +147,16 @@ function isOperationRemark(text) {
   return /^(出庫|入庫|入換発)/.test(String(text).trim())
 }
 
-function StaffTable({ stations = [], stationRemarks = {} }) {
+function getRelationRemarks(station, relationRemarks = {}) {
+  const stationName = String(station?.name || "").trim()
+  const relations = Array.isArray(relationRemarks?.[stationName])
+    ? relationRemarks[stationName]
+    : []
+
+  return relations
+}
+
+function StaffTable({ stations = [], stationRemarks = {}, relationRemarks = {} }) {
   return (
     <div className="staff-table-wrap">
       <table className="staf-table">
@@ -176,6 +185,7 @@ function StaffTable({ stations = [], stationRemarks = {} }) {
             const isPass = station?.isPass === true
             const track = getTrackDisplay(station)
             const remarks = getRemarks(station, stationRemarks)
+            const relations = getRelationRemarks(station, relationRemarks)
             const isFirst = index === 0
             const isLast = index === stations.length - 1
 
@@ -212,16 +222,40 @@ function StaffTable({ stations = [], stationRemarks = {} }) {
                 </td>
 
                 <td className="rem-val">
-                  {remarks.length > 0 ? (
+                  {remarks.length > 0 || relations.length > 0 ? (
                     <div className="staff-row-remarks">
                       {remarks.map((remark, remarkIndex) => (
                         <div
-                          key={remarkIndex}
+                          key={`remark-${remarkIndex}`}
                           className={isOperationRemark(remark) ? "operation-remark" : "manual-remark"}
                         >
                           {remark}
                         </div>
                       ))}
+
+                      {relations.map((relation, relationIndex) => {
+                        const prefix = relation.kind === "connection"
+                          ? "連"
+                          : "待"
+                        const type = relation.trainType || "普通"
+                        const trainNo = relation.trainNo || "—"
+
+                        return (
+                          <div
+                            key={`relation-${relationIndex}`}
+                            className="relation-remark"
+                          >
+                            <span>{prefix}</span>
+                            <span
+                              className="relation-remark-type"
+                              style={relation.trainTypeColor ? { color: relation.trainTypeColor } : undefined}
+                            >
+                              {type}
+                            </span>
+                            <span>{trainNo}</span>
+                          </div>
+                        )
+                      })}
                     </div>
                   ) : (
                     <span className="remark-empty"> </span>
