@@ -102,6 +102,7 @@ function StaffCard({
   train,
   rosterItem = null,
   stationRemarks = {},
+  relationRemarks = {},
   nextTrainNoOverride = "",
   previousTrainNoOverride = "",
   nextTrainIdOverride = "",
@@ -232,7 +233,7 @@ function StaffCard({
         </div>
       </section>
 
-      <StaffTable stations={stations} stationRemarks={stationRemarks} />
+      <StaffTable stations={stations} stationRemarks={stationRemarks} relationRemarks={relationRemarks} />
 
       <section className="staff-notes">
         <div className="staff-section-title">特記事項</div>
