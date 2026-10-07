@@ -311,7 +311,7 @@ export default function DepartureBoard(){
             <span>{x.track||"—"}</span>
             <span className="departure-message">
               <span className="departure-message-track">
-                {x.msg && <>{x.msg}</>}
+                {x.relations.waitParts.length === 0 && x.relations.connectionParts.length === 0 && x.msg}
                 {x.relations.waitParts.length > 0 && (
                   <span className="departure-relation-text">
                     {x.relations.waitParts.map((item, i) => (
