@@ -244,79 +244,59 @@ jobs:
           import subprocess
 
           shas = [x for x in open("/tmp/surface_commits.txt", encoding="utf-8").read().splitlines() if x]
-          raw_lines = []
+          updates = []
+
+          def clean_subject(subject):
+              subject = re.sub(
+                  r"^(feat|feature|fix|add|added|update|improve|change|変更|修正|追加|実装|改善)\s*[:：]\s*",
+                  "",
+                  subject.strip(),
+                  flags=re.I,
+              )
+              return subject
+
+          def normalize_body(body):
+              lines = []
+              for line in body.splitlines():
+                  line = line.strip()
+                  if not line:
+                      continue
+                  line = re.sub(r"^[-*+]\s*", "", line)
+                  line = re.sub(r"^\d+[.)]\s*", "", line)
+                  if line and line not in lines:
+                      lines.append(line)
+              return lines
 
           for sha in shas:
-              subject = subprocess.check_output(
-                  ["git", "show", "-s", "--format=%s", sha],
+              raw = subprocess.check_output(
+                  ["git", "show", "-s", "--format=%s%n%n%b", sha],
                   text=True,
                   encoding="utf-8"
               ).strip()
-              if subject:
-                  raw_lines.append(subject)
+              if not raw:
+                  continue
 
-          def jp(subject):
-              s = subject.strip()
-              # Remove common conventional-commit prefixes.
-              s = re.sub(r"^(feat|feature|fix|add|added|update|improve|change|変更|修正|追加|実装|改善)\s*[:：]\s*", "", s, flags=re.I)
+              parts = raw.split("\n\n", 1)
+              subject = clean_subject(parts[0])
+              body = normalize_body(parts[1] if len(parts) > 1 else "")
 
-              rules = [
-                  (r"shared dataset|共有ダイヤ|共有データセット", "共有ダイヤ・データセット機能を改善"),
-                  (r"shared.*staff|staff.*shared|crew roster|スタフ|行路", "共有ダイヤからスタフ・行路を確認できるように改善"),
-                  (r"departure board|発車標", "駅発車標を改善"),
-                  (r"timetable|時刻表", "時刻表機能を改善"),
-                  (r"train list|列車一覧", "列車一覧を改善"),
-                  (r"line list|路線一覧", "路線一覧を改善"),
-                  (r"login|sign.?in|authentication|認証|ログイン", "ログイン・認証機能を改善"),
-                  (r"discord.*webhook|webhook", "Discord更新通知を改善"),
-                  (r"privacy|プライバシー", "プライバシーポリシーを更新"),
-                  (r"favicon|logo|ロゴ", "ロゴ・アイコンを更新"),
-                  (r"version|バージョン", "バージョン表示を更新"),
-                  (r"cloudflare|worker", "公開環境・サーバー処理を改善"),
-                  (r"firebase|database|データベース", "データ保存・データベース処理を改善"),
-                  (r"build error|jsx|syntax|構文|ビルド", "ビルド・表示上の不具合を修正"),
-                  (r"css|style|design|layout|デザイン|レイアウト|スタイル", "画面デザイン・レイアウトを改善"),
-                  (r"button|menu|ボタン|メニュー", "操作画面を改善"),
-              ]
-              for pattern, text in rules:
-                  if re.search(pattern, s, flags=re.I):
-                      return text
-              # Keep already-Japanese user-facing messages, but make them concise.
-              if re.search(r"[ぁ-んァ-ヶ一-龠]", s):
-                  s = re.sub(r"^(fix|feat|chore|ci|build|docs|style|refactor)\s*[:：]\s*", "", s, flags=re.I)
-                  return s[:80]
-              return None
+              # Commit本文がある場合は、それを優先して利用者向けの詳細として掲載。
+              # 本文がない場合でも、コミット件名をそのまま捨てず、変更内容として残す。
+              detail = body[:8]
+              updates.append((subject, detail))
 
-          items = []
-          seen = set()
-          for subject in raw_lines:
-              item = jp(subject)
-              if item and item not in seen:
-                  seen.add(item)
-                  items.append(item)
+          if not updates:
+              raise SystemExit("利用者向けの変更が見つかりませんでした。")
 
-          # Prefer a compact, user-facing update rather than exposing commit history.
+          # 同じ件名はまとめず、今回の更新で行われた変更を個別に残す。
           sections = []
-          category_rules = [
-              ("📊 共有・ダイヤ", ("共有ダイヤ・データセット機能を改善", "共有ダイヤからスタフ・行路を確認できるように改善")),
-              ("🚆 鉄道機能", ("駅発車標を改善", "時刻表機能を改善", "列車一覧を改善", "路線一覧を改善")),
-              ("🔐 アカウント・データ", ("ログイン・認証機能を改善", "データ保存・データベース処理を改善")),
-              ("🔧 改善・修正", ("Discord更新通知を改善", "ビルド・表示上の不具合を修正", "画面デザイン・レイアウトを改善", "操作画面を改善", "公開環境・サーバー処理を改善")),
-          ]
-
-          used = set()
-          for title, candidates in category_rules:
-              matches = [x for x in items if x in candidates]
-              if matches:
-                  sections.append(title + "\n" + "\n".join("・" + x for x in matches))
-                  used.update(matches)
-
-          other = [x for x in items if x not in used]
-          if other:
-              sections.append("📝 その他\n" + "\n".join("・" + x for x in other[:5]))
-
-          if not sections:
-              sections = ["今回の更新内容を公開しました。"]
+          for subject, details in updates:
+              lines = [f"**{subject}**"]
+              if details:
+                  lines.extend("・" + x[:180] for x in details)
+              else:
+                  lines.append("・この変更により、上記機能・画面の動作を更新しました。")
+              sections.append("\n".join(lines))
 
           body = "ACTIS Web が更新されました。\n\n" + "\n\n".join(sections)
           open("/tmp/update.txt", "w", encoding="utf-8").write(body)
