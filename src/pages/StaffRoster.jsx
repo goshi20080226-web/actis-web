@@ -202,7 +202,7 @@ function StaffRoster() {
                       <button
                         className="staff-roster-train"
                         key={`${item.trainId}-${index}`}
-                        onClick={() => navigate(`/staff/${encodeURIComponent(train.id)}?dataset=${encodeURIComponent(selectedDatasetId)}`)}
+                        onClick={() => navigate(`/staff/${encodeURIComponent(train.id)}?dataset=${encodeURIComponent(selectedDatasetId)}&rosterId=${encodeURIComponent(selectedRoster.id)}`)}
                       >
                         <div className="staff-roster-order">{index + 1}</div>
                         <div className="staff-roster-train-time">
