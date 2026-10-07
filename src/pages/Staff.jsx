@@ -26,6 +26,7 @@ import {
 import StaffCard from "../components/staff/StaffCard"
 import DatasetSelector from "../components/dataset/DatasetSelector"
 import { useDataset } from "../context/DatasetContext"
+import { getWaitAndConnectionRelations } from "../utils/trainRelations"
 
 
 function getCurrentUser() {
@@ -458,6 +459,12 @@ function Staff() {
   ] =
     useState([])
 
+  const [
+    allTrains,
+    setAllTrains
+  ] =
+    useState([])
+
 
   useEffect(() => {
 
@@ -587,6 +594,26 @@ function Staff() {
 
           const effectiveDatasetId =
             datasetFromUrl || selectedDatasetId
+
+          // 待避・連絡判定用に、同一データセットの全列車を保持する。
+          const trainSnapshot =
+            await get(
+              ref(
+                database,
+                "users/" + user.uid + "/trains"
+              )
+            )
+
+          const loadedTrains = trainSnapshot.exists()
+            ? Object.entries(trainSnapshot.val() || {})
+                .map(([id, value]) => ({ id, ...(value || {}) }))
+                .filter(item =>
+                  !effectiveDatasetId ||
+                  String(item.datasetId || "") === String(effectiveDatasetId)
+                )
+            : []
+
+          setAllTrains(loadedTrains)
 
           // 現在の列車が含まれる乗務員行路を取得
           let matchedRoster = null
@@ -1009,6 +1036,11 @@ function Staff() {
     return null
   })()
 
+  const waitConnectionRemarks = getWaitAndConnectionRelations(
+    train,
+    allTrains
+  )
+
   const rosterStationRemarks = (() => {
     const result = {}
     const currentRosterId = String(rosterInfo?.id || "")
@@ -1159,6 +1191,7 @@ function Staff() {
           train={train}
           rosterItem={currentRosterItem}
           stationRemarks={rosterStationRemarks}
+          relationRemarks={waitConnectionRemarks}
           nextTrainNoOverride={nextRosterTrainItem?.trainNo || ""}
           nextTrainIdOverride={nextRosterTrainItem?.trainId || ""}
           previousTrainNoOverride={previousRosterTrainItem?.trainNo || ""}
