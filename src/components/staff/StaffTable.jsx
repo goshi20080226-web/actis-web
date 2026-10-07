@@ -246,12 +246,14 @@ function StaffTable({ stations = [], stationRemarks = {}, relationRemarks = {} }
                             className="relation-remark"
                           >
                             <span>{prefix}</span>
+                            <span className="relation-remark-spacer"> </span>
                             <span
                               className="relation-remark-type"
                               style={relation.trainTypeColor ? { color: relation.trainTypeColor } : undefined}
                             >
                               {type}
                             </span>
+                            <span className="relation-remark-spacer"> </span>
                             <span>{trainNo}</span>
                           </div>
                         )
