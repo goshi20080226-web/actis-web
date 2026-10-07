@@ -131,6 +131,9 @@ export function getWaitAndConnectionRelations(currentTrain, trains = []) {
   const result = {}
   const currentStations = Array.isArray(currentTrain?.stations) ? currentTrain.stations : []
 
+  const currentTrainId = String(currentTrain?.id || "").trim()
+  const currentTrainNo = getTrainNumber(currentTrain)
+
   for (const station of currentStations) {
     const stationName = String(station?.name || "").trim()
     if (!stationName) continue
@@ -142,7 +145,15 @@ export function getWaitAndConnectionRelations(currentTrain, trains = []) {
     const relations = []
 
     for (const otherTrain of trains) {
-      if (!otherTrain || String(otherTrain?.id || "") === String(currentTrain?.id || "")) continue
+      if (!otherTrain) continue
+
+      const otherTrainId = String(otherTrain?.id || "").trim()
+      const otherTrainNo = getTrainNumber(otherTrain)
+
+      if (
+        (currentTrainId && otherTrainId && currentTrainId === otherTrainId) ||
+        (!currentTrainId && currentTrainNo && currentTrainNo === otherTrainNo)
+      ) continue
       if (!isSameDataset(currentTrain, otherTrain)) continue
       if (!isSameDirection(currentTrain, otherTrain)) continue
 
