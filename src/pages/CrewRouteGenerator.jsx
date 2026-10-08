@@ -496,6 +496,11 @@ function CrewRouteGeneratorPage() {
     }
   }, [selectedDatasetId])
 
+  const suggestedPlan = useMemo(() => {
+    if (!trains.length) return null
+    return suggestRoutePlan(trains, new Set(changeStations.filter(Boolean)))
+  }, [trains, changeStations])
+
   const stationOptions = useMemo(() => {
     const result = []
     const seen = new Set()
@@ -568,7 +573,7 @@ function CrewRouteGeneratorPage() {
 
   function calculateAutoPlan() {
     const validChangeStations = changeStations.filter(Boolean)
-    const plan = suggestRoutePlan(trains, new Set(validChangeStations))
+    const plan = suggestedPlan || suggestRoutePlan(trains, new Set(validChangeStations))
     setAutoPlan(plan)
     setCount(plan.routeCount)
     setUsingAutoPlan(true)
@@ -744,13 +749,13 @@ function CrewRouteGeneratorPage() {
             <h2>行路数の自動提案</h2>
             <p>OUD2の運用つながりと交代駅を見て、全列車を1回ずつ割り当てられる行路数を算出します。</p>
           </div>
-          <button type="button" onClick={calculateAutoPlan} disabled={trains.length === 0}>最適な行路数を提案</button>
+          <button type="button" onClick={calculateAutoPlan} disabled={trains.length === 0}>おすすめを適用</button>
         </div>
-        {autoPlan && (
+        {suggestedPlan && (
           <div className="crew-route-auto-summary">
-            <strong>おすすめ {autoPlan.routeCount}行路</strong>
-            <span>全{autoPlan.trainCount}列車中 {autoPlan.assignedCount}列車を割当</span>
-            {autoPlan.depotCount > 0 && <span>出庫列車 {autoPlan.depotCount}本</span>}
+            <strong>おすすめ {suggestedPlan.routeCount}行路</strong>
+            <span>全{suggestedPlan.trainCount}列車中 {suggestedPlan.assignedCount}列車を割当</span>
+            {suggestedPlan.depotCount > 0 && <span>出庫列車 {suggestedPlan.depotCount}本</span>}
           </div>
         )}
       </section>
