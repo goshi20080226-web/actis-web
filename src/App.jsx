@@ -18,6 +18,7 @@ import Datasets from "./pages/Datasets"
 import Account from "./pages/Account"
 import Privacy from "./pages/Privacy"
 import SharedDataset from "./pages/SharedDataset"
+import CrewRouteGenerator from "./pages/CrewRouteGenerator"
 import { DatasetProvider } from "./context/DatasetContext"
 
 function RouteFallback() {
@@ -51,6 +52,7 @@ function App() {
                 <Route path="/account" element={<AuthGuard><Account /></AuthGuard>} />
                 <Route path="/staff/:trainId" element={<AuthGuard><Staff /></AuthGuard>} />
                 <Route path="/staff/operation/:operationName" element={<AuthGuard><StaffOperation /></AuthGuard>} />
+                <Route path="/dev/crew-route" element={<AdminGuard><CrewRouteGenerator /></AdminGuard>} />
                 <Route path="/" element={<Home />} />
                 <Route path="/upload" element={<AuthGuard><Upload /></AuthGuard>} />
                 <Route path="/timetable" element={<AuthGuard><Timetable /></AuthGuard>} />
