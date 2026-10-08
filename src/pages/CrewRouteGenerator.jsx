@@ -124,10 +124,11 @@ function chooseInitialTrain(trains, startStation, targetMinutes) {
     const departure = stationTime(stations[index])
     if (departure === null) continue
 
-    // 出勤駅・勤務時間が未指定なら、各列車の始発駅から出る
-    // 「出庫電車」を候補にして、ダイヤ上で最も早いものを採用する。
+    // 勤務開始時刻が未指定なら、出勤駅が指定されている場合は
+    // その駅で最初に乗れる列車を採用する。出勤駅も未指定なら、
+    // 各列車の始発駅から出る「出庫電車」を候補にする。
     if (targetMinutes === null) {
-      if (index !== 0) continue
+      if (!startStation && index !== 0) continue
       candidates.push({ train, stations, index, departure, score: departure })
       continue
     }
