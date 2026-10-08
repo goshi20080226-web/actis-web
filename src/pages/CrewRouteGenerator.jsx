@@ -220,8 +220,97 @@ function trainToLeg(train) {
     arrival: formatTime(adjustedArrival),
     departureMinutes: departure,
     arrivalMinutes: adjustedArrival,
+    // 支線分岐を途中駅で判定できるよう、列車の全停車駅を保持する。
+    stationPath: stations.map(station => ({
+      name: stationName(station),
+      departureMinutes: stationTime(station),
+      arrivalMinutes: stationTime(station, true)
+    })).filter(station => station.name),
     train
   }
+}
+
+function buildLineNetwork(lines) {
+  const stationLines = new Map()
+
+  for (const line of Array.isArray(lines) ? lines : []) {
+    const lineId = String(line?.id || line?.name || "").trim()
+    if (!lineId) continue
+
+    for (const station of Array.isArray(line?.stations) ? line.stations : []) {
+      const name = stationName(station)
+      if (!name) continue
+
+      if (!stationLines.has(name)) stationLines.set(name, new Set())
+      stationLines.get(name).add(lineId)
+    }
+  }
+
+  return stationLines
+}
+
+function isBranchJunction(stationNameValue, stationLines) {
+  if (!stationNameValue || !stationLines) return false
+  return (stationLines.get(stationNameValue)?.size || 0) >= 2
+}
+
+function findConnectionPoint(previous, current, stationLines) {
+  if (!previous || !current) return null
+
+  // 通常の終端駅接続。
+  if (sameStation(previous.to, current.from)) {
+    return {
+      station: current.from,
+      arrivalMinutes: previous.arrivalMinutes
+    }
+  }
+
+  // 支線対応:
+  // 前列車が分岐駅を「途中駅」として通過し、その駅から別列車が
+  // 支線へ発車する場合も乗務行路を接続できるようにする。
+  // ただし、路線データ上で複数路線が交わる駅だけを対象とする。
+  if (!isBranchJunction(current.from, stationLines)) return null
+
+  const point = previous.stationPath?.find(station =>
+    sameStation(station.name, current.from)
+  )
+  if (!point) return null
+
+  const arrivalMinutes =
+    point.arrivalMinutes ??
+    point.departureMinutes
+
+  if (!Number.isFinite(arrivalMinutes)) return null
+
+  return {
+    station: current.from,
+    arrivalMinutes
+  }
+}
+
+function applyConnectionPoints(route, stationLines) {
+  return route.map((leg, index) => {
+    if (index >= route.length - 1) return leg
+
+    const next = route[index + 1]
+    const connection = findConnectionPoint(leg, next, stationLines)
+    if (!connection) return leg
+
+    const connectionArrival = connection.arrivalMinutes
+    if (!Number.isFinite(connectionArrival)) return leg
+
+    let arrivalMinutes = connectionArrival
+    if (arrivalMinutes < leg.departureMinutes) arrivalMinutes += 1440
+
+    return {
+      ...leg,
+      to: connection.station,
+      arrival: formatTime(arrivalMinutes),
+      arrivalMinutes,
+      connectionStation: connection.station,
+      connectionIsBranch: !sameStation(leg.to, connection.station)
+    }
+  })
 }
 
 function splitChainAtChangeStations(chain, changeSet) {
@@ -256,14 +345,17 @@ function splitChainAtChangeStations(chain, changeSet) {
   return segments
 }
 
-function canConnectLegs(previous, current, changeSet) {
+function canConnectLegs(previous, current, changeSet, stationLines = null) {
   if (!previous || !current) return false
-  if (!sameStation(previous.to, current.from)) return false
-  const gap = current.departureMinutes - previous.arrivalMinutes
+
+  const connection = findConnectionPoint(previous, current, stationLines)
+  if (!connection) return false
+
+  const gap = current.departureMinutes - connection.arrivalMinutes
   return gap >= 0 && gap <= MAX_CREW_CONNECTION_GAP
 }
 
-function buildPhysicalConnections(legs, changeSet) {
+function buildPhysicalConnections(legs, changeSet, stationLines) {
   const sorted = [...legs].sort((a, b) =>
     a.departureMinutes - b.departureMinutes ||
     a.arrivalMinutes - b.arrivalMinutes
@@ -280,7 +372,7 @@ function buildPhysicalConnections(legs, changeSet) {
   for (const previous of sorted) {
     for (const current of sorted) {
       if (previous.trainId === current.trainId) continue
-      if (!canConnectLegs(previous, current, changeSet)) continue
+      if (!canConnectLegs(previous, current, changeSet, stationLines)) continue
 
       const gap = current.departureMinutes - previous.arrivalMinutes
       candidates.push({ previous, current, gap })
@@ -331,7 +423,7 @@ function buildPhysicalConnections(legs, changeSet) {
   return routes
 }
 
-function buildAutomaticRoutes(trains, changeSet) {
+function buildAutomaticRoutes(trains, changeSet, stationLines) {
   const validLegs = trains.map(trainToLeg).filter(Boolean)
   if (!validLegs.length) return []
 
@@ -368,7 +460,7 @@ function buildAutomaticRoutes(trains, changeSet) {
   // これにより、OUD2側にnextTrainNoが保存されていなくても、
   // 「到着→同駅発車」の列車を同一行路へまとめられる。
   const remaining = validLegs.filter(leg => !assigned.has(leg.trainId))
-  const physicalRoutes = buildPhysicalConnections(remaining, changeSet)
+  const physicalRoutes = buildPhysicalConnections(remaining, changeSet, stationLines)
 
   for (const route of physicalRoutes) {
     const usable = route.filter(leg => {
@@ -426,7 +518,7 @@ function routeScore(routes, trains) {
   )
 }
 
-function mergeCompatibleRoutes(routes, changeSet) {
+function mergeCompatibleRoutes(routes, changeSet, stationLines) {
   const result = routes.map(route => [...route])
 
   // 各反復で「最短の待ち時間でつながる2行路」を1つだけ結合します。
@@ -448,7 +540,7 @@ function mergeCompatibleRoutes(routes, changeSet) {
         for (const candidate of candidates) {
           const last = candidate.first[candidate.first.length - 1]
           const next = candidate.second[0]
-          if (!canConnectLegs(last, next, changeSet)) continue
+          if (!canConnectLegs(last, next, changeSet, stationLines)) continue
 
           const gap = next.departureMinutes - last.arrivalMinutes
           if (!best || gap < best.gap) {
@@ -470,11 +562,11 @@ function mergeCompatibleRoutes(routes, changeSet) {
   return result
 }
 
-function suggestRoutePlan(trains, changeSet) {
-  let routes = buildAutomaticRoutes(trains, changeSet)
+function suggestRoutePlan(trains, changeSet, stationLines) {
+  let routes = buildAutomaticRoutes(trains, changeSet, stationLines)
 
   // 単独列車が発生している場合も、待ち時間の短い接続から再結合します。
-  routes = mergeCompatibleRoutes(routes, changeSet)
+  routes = mergeCompatibleRoutes(routes, changeSet, stationLines)
 
   // 最終防衛線。生成結果に駅・時刻上の不連続が残っていた場合は、
   // その箇所で行路を分割します。これにより
@@ -494,14 +586,14 @@ function suggestRoutePlan(trains, changeSet) {
       const previous = current[current.length - 1]
       const next = sorted[i]
 
-      if (canConnectLegs(previous, next, changeSet)) {
+      if (canConnectLegs(previous, next, changeSet, stationLines)) {
         current.push(next)
       } else {
         normalizedRoutes.push(current)
         current = [next]
       }
     }
-    normalizedRoutes.push(current)
+    normalizedRoutes.push(applyConnectionPoints(current, stationLines))
   }
 
   const depotCount = trains.filter(hasDepotDeparture).length
@@ -742,8 +834,8 @@ function CrewRouteGeneratorPage() {
 
   const suggestedPlan = useMemo(() => {
     if (!trains.length) return null
-    return suggestRoutePlan(trains, new Set(changeStations.filter(Boolean)))
-  }, [trains, changeStations])
+    return suggestRoutePlan(trains, new Set(changeStations.filter(Boolean)), buildLineNetwork(lines))
+  }, [trains, changeStations, lines])
 
   const stationOptions = useMemo(() => {
     const result = []
@@ -825,7 +917,7 @@ function CrewRouteGeneratorPage() {
 
   function calculateAutoPlan() {
     const validChangeStations = changeStations.filter(Boolean)
-    const plan = suggestedPlan || suggestRoutePlan(trains, new Set(validChangeStations))
+    const plan = suggestedPlan || suggestRoutePlan(trains, new Set(validChangeStations), buildLineNetwork(lines))
     setAutoPlan(plan)
     setCount(plan.routeCount)
     setUsingAutoPlan(true)
@@ -846,7 +938,7 @@ function CrewRouteGeneratorPage() {
 
     // 自動提案を適用した状態なら、その計画をそのまま採用する。
     if (usingAutoPlan) {
-      const plan = autoPlan || suggestRoutePlan(trains, changeSet)
+      const plan = autoPlan || suggestRoutePlan(trains, changeSet, buildLineNetwork(lines))
       setAutoPlan(plan)
       setCount(plan.routeCount)
       setUsingAutoPlan(true)
