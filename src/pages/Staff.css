@@ -633,6 +633,63 @@
   line-height: 1;
 }
 
+/* ---------- narrow staff table ---------- */
+@media (max-width: 600px) {
+  .staff-table-wrap {
+    overflow-x: hidden;
+  }
+
+  .staf-table {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .staf-table thead th {
+    padding: 6px 3px;
+    font-size: 10px;
+  }
+
+  .staf-table tbody td {
+    padding: 5px 3px;
+    font-size: 10px;
+  }
+
+  .staf-table .staff-time-cell {
+    font-size: 11px !important;
+  }
+
+  .staf-table .time-wrap {
+    min-width: 0;
+  }
+
+  .staf-table .time-h,
+  .staf-table .time-m {
+    font-size: 11px;
+  }
+
+  .staf-table .time-s {
+    font-size: 8px;
+  }
+
+  .staf-table .time-separator {
+    margin: 0;
+  }
+
+  .staf-table .relation-remark-spacer {
+    display: none;
+  }
+
+  .staf-table .staff-row-remarks {
+    gap: 2px 4px;
+  }
+
+  .staf-table .staff-station-name,
+  .staf-table .rem-val {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+}
+
 /* ---------- responsive ---------- */
 
 @media (max-width: 800px) {
