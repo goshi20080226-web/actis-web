@@ -216,27 +216,121 @@ function splitChainAtChangeStations(chain, changeSet) {
   return segments
 }
 
-function buildAutomaticRoutes(trains, changeSet) {
-  const chains = buildOperationChains(trains)
-  const routes = []
+function canConnectLegs(previous, current, changeSet) {
+  if (!previous || !current) return false
+  if (!sameStation(previous.to, current.from)) return false
+  if (changeSet.has(previous.to)) return false
+  return current.departureMinutes >= previous.arrivalMinutes
+}
 
-  for (const chain of chains) {
-    const segments = splitChainAtChangeStations(chain, changeSet)
-    for (const segment of segments) {
-      if (!segment.length) continue
-      routes.push(segment)
+function buildPhysicalConnections(legs, changeSet) {
+  const sorted = [...legs].sort((a, b) =>
+    a.departureMinutes - b.departureMinutes ||
+    a.arrivalMinutes - b.arrivalMinutes
+  )
+  const predecessor = new Map()
+  const successor = new Map()
+
+  // まず、各列車に対して「その列車へ最も自然につながる直前列車」を
+  // 探します。同じ列車を2本以上の行路へ割り当てないようにします。
+  for (const current of sorted) {
+    let best = null
+
+    for (const previous of sorted) {
+      if (previous.trainId === current.trainId) continue
+      if (successor.has(previous.trainId)) continue
+      if (predecessor.has(current.trainId)) continue
+      if (!canConnectLegs(previous, current, changeSet)) continue
+
+      const gap = current.departureMinutes - previous.arrivalMinutes
+      if (!best || gap < best.gap) {
+        best = { previous, gap }
+      }
+    }
+
+    if (best) {
+      predecessor.set(current.trainId, best.previous.trainId)
+      successor.set(best.previous.trainId, current.trainId)
     }
   }
 
-  // Operation情報がなく単独列車になっているものも、必ずどこかの行路へ割り当てる。
-  const assigned = new Set(routes.flat().map(item => item.trainId))
-  const remaining = trains
-    .filter(train => !assigned.has(trainKey(train)))
-    .map(trainToLeg)
-    .filter(Boolean)
-    .sort((a, b) => a.departureMinutes - b.departureMinutes)
+  const byId = new Map(sorted.map(leg => [leg.trainId, leg]))
+  const routes = []
+  const visited = new Set()
 
-  remaining.forEach(leg => routes.push([leg]))
+  // 先頭列車からたどることで、1本の乗務行路として連続した列車をまとめます。
+  for (const leg of sorted) {
+    if (predecessor.has(leg.trainId) || visited.has(leg.trainId)) continue
+
+    const route = []
+    let current = leg
+    while (current && !visited.has(current.trainId)) {
+      visited.add(current.trainId)
+      route.push(current)
+      const nextId = successor.get(current.trainId)
+      current = nextId ? byId.get(nextId) : null
+    }
+
+    if (route.length) routes.push(route)
+  }
+
+  // 循環や不正なリンクがあった場合も、列車を取りこぼさない。
+  for (const leg of sorted) {
+    if (!visited.has(leg.trainId)) routes.push([leg])
+  }
+
+  return routes
+}
+
+function buildAutomaticRoutes(trains, changeSet) {
+  const validLegs = trains.map(trainToLeg).filter(Boolean)
+  if (!validLegs.length) return []
+
+  const trainMap = new Map(
+    trains
+      .filter(train => trainKey(train))
+      .map(train => [trainKey(train), train])
+  )
+
+  // OUD2の明示的な運用リンクを最優先で確定する。
+  const explicitChains = buildOperationChains(trains)
+  const routes = []
+  const assigned = new Set()
+
+  for (const chain of explicitChains) {
+    const segments = splitChainAtChangeStations(chain, changeSet)
+    for (const segment of segments) {
+      const usable = segment.filter(leg => {
+        if (assigned.has(leg.trainId)) return false
+        assigned.add(leg.trainId)
+        return true
+      })
+      if (usable.length) routes.push(usable)
+    }
+  }
+
+  // 明示的な運用リンクがない列車は、駅・時刻から物理的な接続を推定する。
+  // これにより、OUD2側にnextTrainNoが保存されていなくても、
+  // 「到着→同駅発車」の列車を同一行路へまとめられる。
+  const remaining = validLegs.filter(leg => !assigned.has(leg.trainId))
+  const physicalRoutes = buildPhysicalConnections(remaining, changeSet)
+
+  for (const route of physicalRoutes) {
+    const usable = route.filter(leg => {
+      if (assigned.has(leg.trainId)) return false
+      assigned.add(leg.trainId)
+      return true
+    })
+    if (usable.length) routes.push(usable)
+  }
+
+  // 最後の安全弁。どの列車も必ずちょうど1回だけ割り当てる。
+  for (const leg of validLegs) {
+    if (!assigned.has(leg.trainId)) {
+      assigned.add(leg.trainId)
+      routes.push([leg])
+    }
+  }
 
   return routes
 }
@@ -253,7 +347,7 @@ function routeScore(routes, trains) {
       const currentGap = current.departureMinutes - previous.arrivalMinutes
       if (currentGap >= 0) gap += currentGap
     }
-    return gap
+    return sum + gap
   }, 0)
   return coverage * 100000 - routes.length * 1000 - gaps
 }
@@ -261,14 +355,14 @@ function routeScore(routes, trains) {
 function suggestRoutePlan(trains, changeSet) {
   const routes = buildAutomaticRoutes(trains, changeSet)
   const depotCount = trains.filter(hasDepotDeparture).length
-  const routeCount = routes.length
+  const assignedCount = new Set(routes.flat().map(item => item.trainId)).size
 
   return {
     routes,
-    routeCount,
+    routeCount: routes.length,
     depotCount,
     trainCount: trains.length,
-    assignedCount: new Set(routes.flat().map(item => item.trainId)).size,
+    assignedCount,
     score: routeScore(routes, trains)
   }
 }
