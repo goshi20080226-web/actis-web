@@ -430,6 +430,7 @@ function CrewRouteGeneratorPage() {
   )
   const [results, setResults] = useState([])
   const [autoPlan, setAutoPlan] = useState(null)
+  const [usingAutoPlan, setUsingAutoPlan] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -521,6 +522,7 @@ function CrewRouteGeneratorPage() {
   }, [lines, trains])
 
   function updateRoster(id, key, value) {
+    setUsingAutoPlan(false)
     setRosters(current =>
       current.map(roster =>
         roster.id === id
@@ -569,6 +571,7 @@ function CrewRouteGeneratorPage() {
     const plan = suggestRoutePlan(trains, new Set(validChangeStations))
     setAutoPlan(plan)
     setCount(plan.routeCount)
+    setUsingAutoPlan(true)
     setRosters(plan.routes.map((route, index) => ({
       id: crypto.randomUUID(),
       name: `${index + 1}行路`,
@@ -584,16 +587,8 @@ function CrewRouteGeneratorPage() {
     const validChangeStations = changeStations.filter(Boolean)
     const changeSet = new Set(validChangeStations)
 
-    const allConditionsBlank = rosters.every(roster =>
-      !roster.startStation &&
-      !roster.startTime &&
-      !roster.endTime &&
-      !roster.district
-    )
-
-    // 条件が未指定なら、全列車を必ず1回ずつ割り当てる
-    // 自動最適化モードを使用する。
-    if (allConditionsBlank) {
+    // 自動提案を適用した状態なら、その計画をそのまま採用する。
+    if (usingAutoPlan) {
       const plan = autoPlan || suggestRoutePlan(trains, changeSet)
       setAutoPlan(plan)
       setCount(plan.routeCount)
