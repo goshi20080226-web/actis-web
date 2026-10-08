@@ -195,6 +195,11 @@ function generateRoster(config, trains, changeStations, district) {
     let adjustedArrive = arrive
     if (adjustedArrive < depart) adjustedArrive += 1440
 
+    // 1本の列車が日跨ぎで20時間以上走ることは通常あり得ないため、
+    // 時刻データの終端/欠損による誤解釈を候補から除外する。
+    const travelMinutes = adjustedArrive - depart
+    if (travelMinutes < 0 || travelMinutes > 12 * 60) continue
+
     if (hasStartTime && depart < start - 30) break
     if (endLimit !== null && adjustedArrive > endLimit + 20) break
 
