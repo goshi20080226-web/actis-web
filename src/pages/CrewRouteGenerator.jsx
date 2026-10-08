@@ -11,8 +11,8 @@ const emptyRoster = index => ({
   id: crypto.randomUUID(),
   name: `${index + 1}行路`,
   startStation: "",
-  startTime: "06:00",
-  endTime: "14:00",
+  startTime: "",
+  endTime: "",
   district: ""
 })
 
@@ -39,6 +39,7 @@ function formatTime(value) {
 }
 
 function snapTime(value, step) {
+  if (!value) return ""
   const minutes = timeToMinutes(value)
   if (minutes === null) return value
   return formatTime(Math.round(minutes / step) * step)
@@ -112,11 +113,24 @@ function chooseInitialTrain(trains, startStation, targetMinutes) {
 
   for (const train of trains) {
     const stations = getTrainStations(train)
-    const index = findStationIndex(stations, startStation)
+    if (!stations.length) continue
+
+    const index = startStation
+      ? findStationIndex(stations, startStation)
+      : 0
+
     if (index < 0) continue
 
     const departure = stationTime(stations[index])
     if (departure === null) continue
+
+    // 出勤駅・勤務時間が未指定なら、各列車の始発駅から出る
+    // 「出庫電車」を候補にして、ダイヤ上で最も早いものを採用する。
+    if (targetMinutes === null) {
+      if (index !== 0) continue
+      candidates.push({ train, stations, index, departure, score: departure })
+      continue
+    }
 
     const delta = departure - targetMinutes
     if (delta < -15 || delta > 30) continue
@@ -131,19 +145,31 @@ function chooseInitialTrain(trains, startStation, targetMinutes) {
 function generateRoster(config, trains, changeStations, district) {
   const start = timeToMinutes(config.startTime)
   const end = timeToMinutes(config.endTime)
-  if (start === null || end === null || !config.startStation) {
-    return { ...config, status: "条件不足", items: [] }
+  const hasStartStation = Boolean(config.startStation)
+  const hasStartTime = start !== null
+  const hasEndTime = end !== null
+
+  // 条件が完全未指定でも、出庫電車を起点に自動生成できるようにする。
+  // 終了時刻だけ未指定の場合は、最初の行路を最後まで追う。
+  if (hasStartTime && hasEndTime && !config.startStation) {
+    // 出勤駅だけ未指定でも時刻から出庫電車を選べるようにする。
   }
 
-  const endLimit = end < start ? end + 1440 : end
+  const endLimit = hasEndTime
+    ? (hasStartTime && end < start ? end + 1440 : end)
+    : null
+
   const items = []
   const used = new Set()
   let currentStation = config.startStation
-  let cursor = start - 15
+  let cursor = hasStartTime ? start - 15 : null
 
   for (let guard = 0; guard < 40; guard += 1) {
-    const normalizedCursor = cursor % 1440
-    const candidate = chooseInitialTrain(trains, currentStation, normalizedCursor)
+    const candidate = chooseInitialTrain(
+      trains,
+      currentStation,
+      cursor === null ? null : cursor % 1440
+    )
     if (!candidate) break
 
     const trainId = String(candidate.train?.id || candidate.train?.trainId || candidate.train?.trainNo || "")
@@ -168,7 +194,8 @@ function generateRoster(config, trains, changeStations, district) {
     let adjustedArrive = arrive
     if (adjustedArrive < depart) adjustedArrive += 1440
 
-    if (depart < start - 30 || adjustedArrive > endLimit + 20) break
+    if (hasStartTime && depart < start - 30) break
+    if (endLimit !== null && adjustedArrive > endLimit + 20) break
 
     items.push({
       trainId,
@@ -177,12 +204,13 @@ function generateRoster(config, trains, changeStations, district) {
       from: fromStation,
       to: toStation,
       departure: formatTime(depart),
-      arrival: formatTime(adjustedArrive)
+      arrival: formatTime(adjustedArrive),
+      reason: items.length === 0 && !hasStartStation ? "出庫電車" : ""
     })
 
     used.add(trainId)
 
-    if (adjustedArrive >= endLimit - 15) break
+    if (endLimit !== null && adjustedArrive >= endLimit - 15) break
     if (!nextChange) break
 
     currentStation = toStation
@@ -191,12 +219,17 @@ function generateRoster(config, trains, changeStations, district) {
 
   const first = items[0]
   const last = items[items.length - 1]
+  const inferredStart = first?.departure || ""
+  const inferredEnd = last?.arrival || ""
+
   return {
     ...config,
     status: items.length > 0 ? "生成済み" : "候補なし",
     items,
-    actualStart: first?.departure || "",
-    actualEnd: last?.arrival || ""
+    actualStart: inferredStart,
+    actualEnd: inferredEnd,
+    inferredStartStation: !hasStartStation ? first?.from || "" : "",
+    inferredByDepotTrain: !hasStartStation && Boolean(first)
   }
 }
 
@@ -465,7 +498,7 @@ function CrewRouteGeneratorPage() {
         <div className="crew-route-panel-header">
           <div>
             <h2>各行路の希望条件</h2>
-            <p>時刻は大まかな目安として扱い、5分または10分単位に丸めます。</p>
+            <p>未指定の項目はダイヤから自動推定します。出勤駅・勤務時間をすべて空欄にすると、出庫電車を起点に行路を作成します。</p>
           </div>
         </div>
 
@@ -486,7 +519,7 @@ function CrewRouteGeneratorPage() {
                   <td>{index + 1}</td>
                   <td>
                     <select value={roster.startStation} onChange={event => updateRoster(roster.id, "startStation", event.target.value)}>
-                      <option value="">駅を選択</option>
+                      <option value="">指定なし（自動）</option>
                       {stationOptions.map(name => <option key={name} value={name}>{name}</option>)}
                     </select>
                   </td>
@@ -526,7 +559,7 @@ function CrewRouteGeneratorPage() {
                 <div className="crew-route-result-head">
                   <div>
                     <strong>{index + 1}行路</strong>
-                    <span>{result.startStation || "出勤駅未指定"}</span>
+                    <span>{result.startStation || result.inferredStartStation || "出勤駅自動"}</span>
                   </div>
                   <span className={result.items.length ? "result-ok" : "result-ng"}>{result.status}</span>
                 </div>
@@ -545,6 +578,7 @@ function CrewRouteGeneratorPage() {
                           <span>{item.type}</span>
                           <span>{item.from} → {item.to}</span>
                           <span>{item.arrival}</span>
+                          {item.reason && <em>{item.reason}</em>}
                         </div>
                       ))}
                     </div>
