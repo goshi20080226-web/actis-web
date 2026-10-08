@@ -76,6 +76,8 @@ function stationTime(station, preferArrival = false) {
   return hour * 60 + minute
 }
 
+const MAX_CREW_CONNECTION_GAP = 60
+
 function sameStation(a, b) {
   return String(a || "").replace(/\s+/g, "").trim() ===
     String(b || "").replace(/\s+/g, "").trim()
@@ -247,7 +249,9 @@ function canConnectLegs(previous, current, changeSet) {
   if (!previous || !current) return false
   if (!sameStation(previous.to, current.from)) return false
   if (changeSet.has(previous.to)) return false
-  return current.departureMinutes >= previous.arrivalMinutes
+
+  const gap = current.departureMinutes - previous.arrivalMinutes
+  return gap >= 0 && gap <= MAX_CREW_CONNECTION_GAP
 }
 
 function buildPhysicalConnections(legs, changeSet) {
@@ -258,27 +262,36 @@ function buildPhysicalConnections(legs, changeSet) {
   const predecessor = new Map()
   const successor = new Map()
 
-  // まず、各列車に対して「その列車へ最も自然につながる直前列車」を
-  // 探します。同じ列車を2本以上の行路へ割り当てないようにします。
-  for (const current of sorted) {
-    let best = null
+  // 「現在列車ごとに最短」を順番に選ぶのではなく、
+  // 接続候補そのものを待ち時間の短い順に並べます。
+  // これにより、先に長い待ち時間の接続を取ってしまって
+  // 後から5～10分の良い接続を失う問題を減らします。
+  const candidates = []
 
-    for (const previous of sorted) {
+  for (const previous of sorted) {
+    for (const current of sorted) {
       if (previous.trainId === current.trainId) continue
-      if (successor.has(previous.trainId)) continue
-      if (predecessor.has(current.trainId)) continue
       if (!canConnectLegs(previous, current, changeSet)) continue
 
       const gap = current.departureMinutes - previous.arrivalMinutes
-      if (!best || gap < best.gap) {
-        best = { previous, gap }
-      }
+      candidates.push({ previous, current, gap })
     }
+  }
 
-    if (best) {
-      predecessor.set(current.trainId, best.previous.trainId)
-      successor.set(best.previous.trainId, current.trainId)
-    }
+  candidates.sort((a, b) =>
+    a.gap - b.gap ||
+    a.current.departureMinutes - b.current.departureMinutes
+  )
+
+  for (const candidate of candidates) {
+    const previousId = candidate.previous.trainId
+    const currentId = candidate.current.trainId
+
+    if (successor.has(previousId)) continue
+    if (predecessor.has(currentId)) continue
+
+    predecessor.set(currentId, previousId)
+    successor.set(previousId, currentId)
   }
 
   const byId = new Map(sorted.map(leg => [leg.trainId, leg]))
@@ -407,11 +420,11 @@ function routeScore(routes, trains) {
 function mergeCompatibleRoutes(routes, changeSet) {
   const result = routes.map(route => [...route])
 
-  let changed = true
-  while (changed) {
-    changed = false
+  // 各反復で「最短の待ち時間でつながる2行路」を1つだけ結合します。
+  // 先に見つかった順で結合するより、乗務間隔の総量を抑えやすくなります。
+  while (true) {
+    let best = null
 
-    outer:
     for (let i = 0; i < result.length; i += 1) {
       for (let j = i + 1; j < result.length; j += 1) {
         const left = result[i]
@@ -419,24 +432,30 @@ function mergeCompatibleRoutes(routes, changeSet) {
         if (!left.length || !right.length) continue
 
         const candidates = [
-          [left, right],
-          [right, left]
+          { first: left, second: right, firstIndex: i, secondIndex: j },
+          { first: right, second: left, firstIndex: j, secondIndex: i }
         ]
 
-        for (const [first, second] of candidates) {
-          const last = first[first.length - 1]
-          const next = second[0]
-
+        for (const candidate of candidates) {
+          const last = candidate.first[candidate.first.length - 1]
+          const next = candidate.second[0]
           if (!canConnectLegs(last, next, changeSet)) continue
 
-          const merged = [...first, ...second]
-          result[i] = merged
-          result.splice(j, 1)
-          changed = true
-          break outer
+          const gap = next.departureMinutes - last.arrivalMinutes
+          if (!best || gap < best.gap) {
+            best = { ...candidate, gap }
+          }
         }
       }
     }
+
+    if (!best) break
+
+    const merged = [...best.first, ...best.second]
+    const keepIndex = best.firstIndex
+    const removeIndex = best.secondIndex
+    result[keepIndex] = merged
+    result.splice(removeIndex, 1)
   }
 
   return result
@@ -445,20 +464,47 @@ function mergeCompatibleRoutes(routes, changeSet) {
 function suggestRoutePlan(trains, changeSet) {
   let routes = buildAutomaticRoutes(trains, changeSet)
 
-  // 単独列車が発生している場合は、既存行路の終端と接続できる
-  // 別行路の先頭を探して、1行路あたり複数列車になるよう再結合する。
+  // 単独列車が発生している場合も、待ち時間の短い接続から再結合します。
   routes = mergeCompatibleRoutes(routes, changeSet)
 
+  // 最終防衛線。生成結果に駅・時刻上の不連続が残っていた場合は、
+  // その箇所で行路を分割します。これにより
+  // 「神羽市到着→白島発」のような不可能な乗継や、
+  // 「18:49→00:10」のような過大な待ち時間を1行路として表示しません。
+  const normalizedRoutes = []
+  for (const route of routes) {
+    if (!route.length) continue
+
+    const sorted = [...route].sort((a, b) =>
+      a.departureMinutes - b.departureMinutes ||
+      a.arrivalMinutes - b.arrivalMinutes
+    )
+
+    let current = [sorted[0]]
+    for (let i = 1; i < sorted.length; i += 1) {
+      const previous = current[current.length - 1]
+      const next = sorted[i]
+
+      if (canConnectLegs(previous, next, changeSet)) {
+        current.push(next)
+      } else {
+        normalizedRoutes.push(current)
+        current = [next]
+      }
+    }
+    normalizedRoutes.push(current)
+  }
+
   const depotCount = trains.filter(hasDepotDeparture).length
-  const assignedCount = new Set(routes.flat().map(item => item.trainId)).size
+  const assignedCount = new Set(normalizedRoutes.flat().map(item => item.trainId)).size
 
   return {
-    routes,
-    routeCount: routes.length,
+    routes: normalizedRoutes,
+    routeCount: normalizedRoutes.length,
     depotCount,
     trainCount: trains.length,
     assignedCount,
-    score: routeScore(routes, trains)
+    score: routeScore(normalizedRoutes, trains)
   }
 }
 
