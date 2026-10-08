@@ -298,6 +298,8 @@ function buildAutomaticRoutes(trains, changeSet) {
   const assigned = new Set()
 
   for (const chain of explicitChains) {
+    if (chain.length < 2) continue
+
     const segments = splitChainAtChangeStations(chain, changeSet)
     for (const segment of segments) {
       const usable = segment.filter(leg => {
