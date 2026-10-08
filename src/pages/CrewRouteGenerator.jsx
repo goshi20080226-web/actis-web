@@ -236,7 +236,7 @@ function splitChainAtChangeStations(chain, changeSet) {
     // 明示的な運用リンクであっても、同一ダイヤ日の時刻が
     // 「前列車の到着→次列車の発車」の順にならない場合は、
     // それを同一乗務行路として連結しない。
-    // これにより 21:30 → 09:40 のような誤った日跨ぎ行路を防ぐ。
+    // これにより不正な日跨ぎ・逆時刻の連結を防ぐ。
     if (
       previousLeg &&
       (
@@ -250,12 +250,6 @@ function splitChainAtChangeStations(chain, changeSet) {
 
     current.push(leg)
     previousLeg = leg
-
-    if (changeSet.has(leg.to)) {
-      segments.push(current)
-      current = []
-      previousLeg = null
-    }
   }
 
   if (current.length) segments.push(current)
@@ -265,8 +259,6 @@ function splitChainAtChangeStations(chain, changeSet) {
 function canConnectLegs(previous, current, changeSet) {
   if (!previous || !current) return false
   if (!sameStation(previous.to, current.from)) return false
-  if (changeSet.has(previous.to)) return false
-
   const gap = current.departureMinutes - previous.arrivalMinutes
   return gap >= 0 && gap <= MAX_CREW_CONNECTION_GAP
 }
