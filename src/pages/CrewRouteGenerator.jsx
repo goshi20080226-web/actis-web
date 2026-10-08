@@ -701,6 +701,7 @@ function CrewRouteGeneratorPage() {
       const plan = autoPlan || suggestRoutePlan(trains, changeSet)
       setAutoPlan(plan)
       setCount(plan.routeCount)
+      setUsingAutoPlan(true)
       setRosters(plan.routes.map((route, index) => ({
         id: crypto.randomUUID(),
         name: `${index + 1}行路`,
