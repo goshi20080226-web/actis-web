@@ -113,6 +113,166 @@ function hasDepotDeparture(train) {
     train.operationRemarks.some(remark => remark?.label === "出庫")
 }
 
+function trainKey(train) {
+  return String(train?.id || train?.trainId || train?.trainNo || "")
+}
+
+function trainStartTime(train) {
+  const stations = getTrainStations(train)
+  if (!stations.length) return null
+  return stationTime(stations[0])
+}
+
+function trainEndTime(train) {
+  const stations = getTrainStations(train)
+  if (!stations.length) return null
+  return stationTime(stations[stations.length - 1], true)
+}
+
+function buildOperationChains(trains) {
+  const map = new Map(trains.map(train => [String(train?.trainNo || ""), train]))
+  const visited = new Set()
+  const chains = []
+
+  const starts = trains.filter(train => {
+    const previous = String(train?.previousTrainNo || "")
+    return !previous || !map.has(previous)
+  })
+
+  const walk = start => {
+    const chain = []
+    let current = start
+    while (current && !visited.has(trainKey(current))) {
+      visited.add(trainKey(current))
+      chain.push(current)
+      const nextNo = String(current?.nextTrainNo || "")
+      current = nextNo ? map.get(nextNo) : null
+    }
+    return chain
+  }
+
+  starts
+    .sort((a, b) => (trainStartTime(a) ?? Infinity) - (trainStartTime(b) ?? Infinity))
+    .forEach(start => {
+      const chain = walk(start)
+      if (chain.length) chains.push(chain)
+    })
+
+  trains
+    .filter(train => !visited.has(trainKey(train)))
+    .sort((a, b) => (trainStartTime(a) ?? Infinity) - (trainStartTime(b) ?? Infinity))
+    .forEach(train => {
+      const chain = walk(train)
+      if (chain.length) chains.push(chain)
+    })
+
+  return chains
+}
+
+function trainToLeg(train) {
+  const stations = getTrainStations(train)
+  if (!stations.length) return null
+  const from = stationName(stations[0])
+  const to = stationName(stations[stations.length - 1])
+  const departure = stationTime(stations[0])
+  const arrival = stationTime(stations[stations.length - 1], true)
+  if (!from || !to || departure === null || arrival === null) return null
+
+  let adjustedArrival = arrival
+  if (adjustedArrival < departure) adjustedArrival += 1440
+  if (adjustedArrival - departure > 12 * 60) return null
+
+  return {
+    trainId: trainKey(train),
+    trainNo: train?.trainNo || train?.number || trainKey(train),
+    type: train?.typeShort || train?.type || "列車",
+    from,
+    to,
+    departure: formatTime(departure),
+    arrival: formatTime(adjustedArrival),
+    departureMinutes: departure,
+    arrivalMinutes: adjustedArrival,
+    train
+  }
+}
+
+function splitChainAtChangeStations(chain, changeSet) {
+  const segments = []
+  let current = []
+
+  for (const train of chain) {
+    const leg = trainToLeg(train)
+    if (!leg) continue
+    current.push(leg)
+
+    const reachesChange = changeSet.has(leg.to)
+    if (reachesChange) {
+      segments.push(current)
+      current = []
+    }
+  }
+
+  if (current.length) segments.push(current)
+  return segments
+}
+
+function buildAutomaticRoutes(trains, changeSet) {
+  const chains = buildOperationChains(trains)
+  const routes = []
+
+  for (const chain of chains) {
+    const segments = splitChainAtChangeStations(chain, changeSet)
+    for (const segment of segments) {
+      if (!segment.length) continue
+      routes.push(segment)
+    }
+  }
+
+  // Operation情報がなく単独列車になっているものも、必ずどこかの行路へ割り当てる。
+  const assigned = new Set(routes.flat().map(item => item.trainId))
+  const remaining = trains
+    .filter(train => !assigned.has(trainKey(train)))
+    .map(trainToLeg)
+    .filter(Boolean)
+    .sort((a, b) => a.departureMinutes - b.departureMinutes)
+
+  remaining.forEach(leg => routes.push([leg]))
+
+  return routes
+}
+
+function routeScore(routes, trains) {
+  const assigned = new Set(routes.flat().map(item => item.trainId))
+  const validTrainCount = trains.filter(trainToLeg).length
+  const coverage = validTrainCount ? assigned.size / validTrainCount : 0
+  const gaps = routes.reduce((sum, route) => {
+    let gap = 0
+    for (let i = 1; i < route.length; i += 1) {
+      const previous = route[i - 1]
+      const current = route[i]
+      const currentGap = current.departureMinutes - previous.arrivalMinutes
+      if (currentGap >= 0) gap += currentGap
+    }
+    return gap
+  }, 0)
+  return coverage * 100000 - routes.length * 1000 - gaps
+}
+
+function suggestRoutePlan(trains, changeSet) {
+  const routes = buildAutomaticRoutes(trains, changeSet)
+  const depotCount = trains.filter(hasDepotDeparture).length
+  const routeCount = routes.length
+
+  return {
+    routes,
+    routeCount,
+    depotCount,
+    trainCount: trains.length,
+    assignedCount: new Set(routes.flat().map(item => item.trainId)).size,
+    score: routeScore(routes, trains)
+  }
+}
+
 function chooseInitialTrain(trains, startStation, targetMinutes, reservedTrainIds = new Set(), rosterIndex = 0) {
   const candidates = []
 
