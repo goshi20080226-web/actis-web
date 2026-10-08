@@ -22,6 +22,7 @@ import Header from './components/Header.jsx'
 import Sidebar from './components/Sidebar.jsx'
 import { DatasetProvider } from './context/DatasetContext.jsx'
 import Privacy from './pages/Privacy.jsx'
+import CrewRouteGenerator from './pages/CrewRouteGenerator.jsx'
 import Terms from './pages/Terms.jsx'
 import './App.css'
 
@@ -72,6 +73,14 @@ function App() {
                     <AuthGuard>
                       <Trains />
                     </AuthGuard>
+                  }
+                />
+                <Route
+                  path="/dev/crew-route"
+                  element={
+                    <AdminGuard>
+                      <CrewRouteGenerator />
+                    </AdminGuard>
                   }
                 />
                 <Route
