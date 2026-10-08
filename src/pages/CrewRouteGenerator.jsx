@@ -429,6 +429,7 @@ function CrewRouteGeneratorPage() {
     Array.from({ length: 10 }, (_, index) => emptyRoster(index))
   )
   const [results, setResults] = useState([])
+  const [autoPlan, setAutoPlan] = useState(null)
 
   useEffect(() => {
     let cancelled = false
@@ -563,11 +564,61 @@ function CrewRouteGeneratorPage() {
     )
   }
 
+  function calculateAutoPlan() {
+    const validChangeStations = changeStations.filter(Boolean)
+    const plan = suggestRoutePlan(trains, new Set(validChangeStations))
+    setAutoPlan(plan)
+    setCount(plan.routeCount)
+    setRosters(plan.routes.map((route, index) => ({
+      id: crypto.randomUUID(),
+      name: `${index + 1}行路`,
+      startStation: route[0]?.from || "",
+      startTime: route[0]?.departure || "",
+      endTime: route[route.length - 1]?.arrival || "",
+      district: ""
+    })))
+    return plan
+  }
+
   function generate() {
     const validChangeStations = changeStations.filter(Boolean)
     const changeSet = new Set(validChangeStations)
-    const reservedInitialTrainIds = new Set()
 
+    const allConditionsBlank = rosters.every(roster =>
+      !roster.startStation &&
+      !roster.startTime &&
+      !roster.endTime &&
+      !roster.district
+    )
+
+    // 条件が未指定なら、全列車を必ず1回ずつ割り当てる
+    // 自動最適化モードを使用する。
+    if (allConditionsBlank) {
+      const plan = autoPlan || suggestRoutePlan(trains, changeSet)
+      setAutoPlan(plan)
+      setCount(plan.routeCount)
+      setRosters(plan.routes.map((route, index) => ({
+        id: crypto.randomUUID(),
+        name: `${index + 1}行路`,
+        startStation: route[0]?.from || "",
+        startTime: route[0]?.departure || "",
+        endTime: route[route.length - 1]?.arrival || "",
+        district: ""
+      })))
+      setResults(plan.routes.map((route, index) => ({
+        id: crypto.randomUUID(),
+        name: `${index + 1}行路`,
+        status: "生成済み",
+        items: route,
+        actualStart: route[0]?.departure || "",
+        actualEnd: route[route.length - 1]?.arrival || "",
+        inferredStartStation: route[0]?.from || "",
+        inferredByDepotTrain: hasDepotDeparture(route[0]?.train)
+      })))
+      return
+    }
+
+    const reservedInitialTrainIds = new Set()
     const generated = rosters.map((roster, index) => {
       const district = districts.find(item => item.name && item.name === roster.district)
       const result = generateRoster(
@@ -693,6 +744,23 @@ function CrewRouteGeneratorPage() {
       </section>
 
       <section className="crew-route-panel">
+        <div className="crew-route-panel-header">
+          <div>
+            <h2>行路数の自動提案</h2>
+            <p>OUD2の運用つながりと交代駅を見て、全列車を1回ずつ割り当てられる行路数を算出します。</p>
+          </div>
+          <button type="button" onClick={calculateAutoPlan} disabled={trains.length === 0}>最適な行路数を提案</button>
+        </div>
+        {autoPlan && (
+          <div className="crew-route-auto-summary">
+            <strong>おすすめ {autoPlan.routeCount}行路</strong>
+            <span>全{autoPlan.trainCount}列車中 {autoPlan.assignedCount}列車を割当</span>
+            {autoPlan.depotCount > 0 && <span>出庫列車 {autoPlan.depotCount}本</span>}
+          </div>
+        )}
+      </section>
+
+            <section className="crew-route-panel">
         <div className="crew-route-panel-header">
           <div>
             <h2>各行路の希望条件</h2>
