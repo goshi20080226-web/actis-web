@@ -341,21 +341,83 @@ function routeScore(routes, trains) {
   const assigned = new Set(routes.flat().map(item => item.trainId))
   const validTrainCount = trains.filter(trainToLeg).length
   const coverage = validTrainCount ? assigned.size / validTrainCount : 0
-  const gaps = routes.reduce((sum, route) => {
-    let gap = 0
+
+  let gaps = 0
+  let singleTrainRoutes = 0
+  let connectedTrainCount = 0
+
+  for (const route of routes) {
+    if (route.length === 1) {
+      singleTrainRoutes += 1
+      continue
+    }
+
+    connectedTrainCount += route.length
+
     for (let i = 1; i < route.length; i += 1) {
       const previous = route[i - 1]
       const current = route[i]
       const currentGap = current.departureMinutes - previous.arrivalMinutes
-      if (currentGap >= 0) gap += currentGap
+      if (currentGap >= 0) gaps += currentGap
     }
-    return sum + gap
-  }, 0)
-  return coverage * 100000 - routes.length * 1000 - gaps
+  }
+
+  // 全列車を割り当てることを最優先にしつつ、
+  // 行路数を減らし、1行路に複数列車をまとめることを強く評価する。
+  return (
+    coverage * 1000000 -
+    routes.length * 10000 -
+    singleTrainRoutes * 3000 +
+    connectedTrainCount * 100 -
+    gaps
+  )
+}
+
+function mergeCompatibleRoutes(routes, changeSet) {
+  const result = routes.map(route => [...route])
+
+  let changed = true
+  while (changed) {
+    changed = false
+
+    outer:
+    for (let i = 0; i < result.length; i += 1) {
+      for (let j = i + 1; j < result.length; j += 1) {
+        const left = result[i]
+        const right = result[j]
+        if (!left.length || !right.length) continue
+
+        const candidates = [
+          [left, right],
+          [right, left]
+        ]
+
+        for (const [first, second] of candidates) {
+          const last = first[first.length - 1]
+          const next = second[0]
+
+          if (!canConnectLegs(last, next, changeSet)) continue
+
+          const merged = [...first, ...second]
+          result[i] = merged
+          result.splice(j, 1)
+          changed = true
+          break outer
+        }
+      }
+    }
+  }
+
+  return result
 }
 
 function suggestRoutePlan(trains, changeSet) {
-  const routes = buildAutomaticRoutes(trains, changeSet)
+  let routes = buildAutomaticRoutes(trains, changeSet)
+
+  // 単独列車が発生している場合は、既存行路の終端と接続できる
+  // 別行路の先頭を探して、1行路あたり複数列車になるよう再結合する。
+  routes = mergeCompatibleRoutes(routes, changeSet)
+
   const depotCount = trains.filter(hasDepotDeparture).length
   const assignedCount = new Set(routes.flat().map(item => item.trainId)).size
 
