@@ -185,7 +185,7 @@ function generateRoster(config, trains, changeStations, district, rosterIndex = 
       currentStation,
       cursor === null ? null : cursor % 1440,
       reservedTrainIds,
-      rosterIndex
+      items.length === 0 ? rosterIndex : 0
     )
     if (!candidate) break
 
