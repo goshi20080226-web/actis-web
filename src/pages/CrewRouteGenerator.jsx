@@ -134,14 +134,40 @@ function buildOperationChains(trains) {
   const visited = new Set()
   const chains = []
 
+  // OUD2パーサーが付与した運用番号・運用順序を最優先する。
+  // これがある場合、同一運用の列車を1つの乗務行路候補として扱える。
+  const operationGroups = new Map()
+  for (const train of trains) {
+    const operation = String(train?.unyo || "").trim()
+    if (!operation) continue
+    if (!operationGroups.has(operation)) operationGroups.set(operation, [])
+    operationGroups.get(operation).push(train)
+  }
+
+  for (const group of operationGroups.values()) {
+    group.sort((a, b) => {
+      const seqA = Number(a?.operationSequence)
+      const seqB = Number(b?.operationSequence)
+      if (Number.isFinite(seqA) && Number.isFinite(seqB) && seqA !== seqB) {
+        return seqA - seqB
+      }
+      return (trainStartTime(a) ?? Infinity) - (trainStartTime(b) ?? Infinity)
+    })
+
+    for (const train of group) visited.add(trainKey(train))
+    if (group.length) chains.push(group)
+  }
+
+  // 運用番号がないデータは、従来のnext/previousリンクから復元する。
   const starts = trains.filter(train => {
+    if (visited.has(trainKey(train))) return false
     const previous = String(train?.previousTrainNo || "")
     return !previous || !map.has(previous)
   })
 
-  const walk = start => {
+  const walk = startTrain => {
     const chain = []
-    let current = start
+    let current = startTrain
     while (current && !visited.has(trainKey(current))) {
       visited.add(trainKey(current))
       chain.push(current)
@@ -153,8 +179,8 @@ function buildOperationChains(trains) {
 
   starts
     .sort((a, b) => (trainStartTime(a) ?? Infinity) - (trainStartTime(b) ?? Infinity))
-    .forEach(start => {
-      const chain = walk(start)
+    .forEach(startTrain => {
+      const chain = walk(startTrain)
       if (chain.length) chains.push(chain)
     })
 
