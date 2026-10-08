@@ -108,10 +108,18 @@ function findNextChangeStation(stations, startIndex, changeSet, district) {
   return null
 }
 
-function chooseInitialTrain(trains, startStation, targetMinutes) {
+function hasDepotDeparture(train) {
+  return Array.isArray(train?.operationRemarks) &&
+    train.operationRemarks.some(remark => remark?.label === "出庫")
+}
+
+function chooseInitialTrain(trains, startStation, targetMinutes, reservedTrainIds = new Set(), rosterIndex = 0) {
   const candidates = []
 
   for (const train of trains) {
+    const trainId = String(train?.id || train?.trainId || train?.trainNo || "")
+    if (!trainId || reservedTrainIds.has(trainId)) continue
+
     const stations = getTrainStations(train)
     if (!stations.length) continue
 
@@ -124,11 +132,15 @@ function chooseInitialTrain(trains, startStation, targetMinutes) {
     const departure = stationTime(stations[index])
     if (departure === null) continue
 
-    // 勤務開始時刻が未指定なら、出勤駅が指定されている場合は
-    // その駅で最初に乗れる列車を採用する。出勤駅も未指定なら、
-    // 各列車の始発駅から出る「出庫電車」を候補にする。
+    // 出勤駅・勤務時間が未指定なら、OUD2の運用情報で明示された
+    // 「出庫」列車だけを候補にする。
+    if (targetMinutes === null && !startStation) {
+      if (!hasDepotDeparture(train)) continue
+      candidates.push({ train, stations, index, departure, score: departure })
+      continue
+    }
+
     if (targetMinutes === null) {
-      if (!startStation && index !== 0) continue
       candidates.push({ train, stations, index, departure, score: departure })
       continue
     }
@@ -140,10 +152,12 @@ function chooseInitialTrain(trains, startStation, targetMinutes) {
   }
 
   candidates.sort((a, b) => a.score - b.score || a.departure - b.departure)
-  return candidates[0] || null
+
+  // 条件が完全未指定のときも、同じ出庫列車を全行路で重複使用しない。
+  return candidates[rosterIndex % Math.max(candidates.length, 1)] || null
 }
 
-function generateRoster(config, trains, changeStations, district) {
+function generateRoster(config, trains, changeStations, district, rosterIndex = 0, reservedTrainIds = new Set()) {
   const start = timeToMinutes(config.startTime)
   const end = timeToMinutes(config.endTime)
   const hasStartStation = Boolean(config.startStation)
@@ -169,7 +183,9 @@ function generateRoster(config, trains, changeStations, district) {
     const candidate = chooseInitialTrain(
       trains,
       currentStation,
-      cursor === null ? null : cursor % 1440
+      cursor === null ? null : cursor % 1440,
+      reservedTrainIds,
+      rosterIndex
     )
     if (!candidate) break
 
@@ -390,10 +406,26 @@ function CrewRouteGeneratorPage() {
   function generate() {
     const validChangeStations = changeStations.filter(Boolean)
     const changeSet = new Set(validChangeStations)
-    const generated = rosters.map(roster => {
+    const reservedInitialTrainIds = new Set()
+
+    const generated = rosters.map((roster, index) => {
       const district = districts.find(item => item.name && item.name === roster.district)
-      return generateRoster(roster, trains, changeSet, district)
+      const result = generateRoster(
+        roster,
+        trains,
+        changeSet,
+        district,
+        index,
+        reservedInitialTrainIds
+      )
+
+      if (result.items[0]?.trainId) {
+        reservedInitialTrainIds.add(result.items[0].trainId)
+      }
+
+      return result
     })
+
     setResults(generated)
   }
 
