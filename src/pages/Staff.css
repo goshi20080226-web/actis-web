@@ -675,10 +675,6 @@
     margin: 0;
   }
 
-  .staf-table .relation-remark-spacer {
-    display: none;
-  }
-
   .staf-table .staff-row-remarks {
     gap: 2px 4px;
   }
