@@ -134,51 +134,27 @@ function buildOperationChains(trains) {
   const visited = new Set()
   const chains = []
 
-  // OUD2パーサーが付与した運用番号・運用順序を最優先する。
-  // これがある場合、同一運用の列車を1つの乗務行路候補として扱える。
-  const operationGroups = new Map()
-  for (const train of trains) {
-    const operation = String(train?.unyo || "").trim()
-    if (!operation) continue
-    if (!operationGroups.has(operation)) operationGroups.set(operation, [])
-    operationGroups.get(operation).push(train)
-  }
-
-  for (const group of operationGroups.values()) {
-    group.sort((a, b) => {
-      const seqA = Number(a?.operationSequence)
-      const seqB = Number(b?.operationSequence)
-      if (Number.isFinite(seqA) && Number.isFinite(seqB) && seqA !== seqB) {
-        return seqA - seqB
-      }
-      return (trainStartTime(a) ?? Infinity) - (trainStartTime(b) ?? Infinity)
-    })
-
-    // 1列車だけの運用番号は「運用つながりが確定した」とはみなさない。
-    // 出庫列車などは、後段の駅・時刻による物理接続で次列車へつながる
-    // 可能性があるため、ここではvisitedに入れず残す。
-    if (group.length >= 2) {
-      for (const train of group) visited.add(trainKey(train))
-      chains.push(group)
-    }
-  }
-
-  // 運用番号がないデータは、従来のnext/previousリンクから復元する。
+  // 運用番号(unyo)だけでは列車同士の接続関係を保証できないため、
+  // 行路生成では OUD2 パーサーが確定した nextTrainNo / previousTrainNo
+  // を唯一の「明示的な運用接続」として扱う。
   const starts = trains.filter(train => {
-    if (visited.has(trainKey(train))) return false
-    const previous = String(train?.previousTrainNo || "")
+    if (!train || visited.has(trainKey(train))) return false
+    const previous = String(train?.previousTrainNo || "").trim()
     return !previous || !map.has(previous)
   })
 
   const walk = startTrain => {
     const chain = []
     let current = startTrain
+
     while (current && !visited.has(trainKey(current))) {
       visited.add(trainKey(current))
       chain.push(current)
-      const nextNo = String(current?.nextTrainNo || "")
+
+      const nextNo = String(current?.nextTrainNo || "").trim()
       current = nextNo ? map.get(nextNo) : null
     }
+
     return chain
   }
 
@@ -189,6 +165,8 @@ function buildOperationChains(trains) {
       if (chain.length) chains.push(chain)
     })
 
+  // 前後リンクが循環している・片側だけ存在する等の異常データでも
+  // 列車を取りこぼさない。
   trains
     .filter(train => !visited.has(trainKey(train)))
     .sort((a, b) => (trainStartTime(a) ?? Infinity) - (trainStartTime(b) ?? Infinity))
@@ -230,16 +208,34 @@ function trainToLeg(train) {
 function splitChainAtChangeStations(chain, changeSet) {
   const segments = []
   let current = []
+  let previousLeg = null
 
   for (const train of chain) {
     const leg = trainToLeg(train)
     if (!leg) continue
-    current.push(leg)
 
-    const reachesChange = changeSet.has(leg.to)
-    if (reachesChange) {
+    // 明示的な運用リンクであっても、同一ダイヤ日の時刻が
+    // 「前列車の到着→次列車の発車」の順にならない場合は、
+    // それを同一乗務行路として連結しない。
+    // これにより 21:30 → 09:40 のような誤った日跨ぎ行路を防ぐ。
+    if (
+      previousLeg &&
+      (
+        leg.departureMinutes < previousLeg.arrivalMinutes ||
+        leg.arrivalMinutes < leg.departureMinutes
+      )
+    ) {
+      if (current.length) segments.push(current)
+      current = []
+    }
+
+    current.push(leg)
+    previousLeg = leg
+
+    if (changeSet.has(leg.to)) {
       segments.push(current)
       current = []
+      previousLeg = null
     }
   }
 
@@ -329,10 +325,14 @@ function buildAutomaticRoutes(trains, changeSet) {
   const assigned = new Set()
 
   for (const chain of explicitChains) {
-    if (chain.length < 2) continue
-
     const segments = splitChainAtChangeStations(chain, changeSet)
+
     for (const segment of segments) {
+      // 1列車だけの明示チェーンは、ここで確定させず物理接続へ回す。
+      // これが「1行路1本」の大量発生を防ぎ、例えば
+      // 出庫列車→折返し列車のような駅・時刻接続を拾える。
+      if (segment.length < 2) continue
+
       const usable = segment.filter(leg => {
         if (assigned.has(leg.trainId)) return false
         assigned.add(leg.trainId)
@@ -342,7 +342,7 @@ function buildAutomaticRoutes(trains, changeSet) {
     }
   }
 
-  // 明示的な運用リンクがない列車は、駅・時刻から物理的な接続を推定する。
+  // 単独列車・明示リンクから切り離された列車は、駅・時刻から物理的な接続を推定する。
   // これにより、OUD2側にnextTrainNoが保存されていなくても、
   // 「到着→同駅発車」の列車を同一行路へまとめられる。
   const remaining = validLegs.filter(leg => !assigned.has(leg.trainId))
