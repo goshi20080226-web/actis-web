@@ -154,8 +154,13 @@ function buildOperationChains(trains) {
       return (trainStartTime(a) ?? Infinity) - (trainStartTime(b) ?? Infinity)
     })
 
-    for (const train of group) visited.add(trainKey(train))
-    if (group.length) chains.push(group)
+    // 1列車だけの運用番号は「運用つながりが確定した」とはみなさない。
+    // 出庫列車などは、後段の駅・時刻による物理接続で次列車へつながる
+    // 可能性があるため、ここではvisitedに入れず残す。
+    if (group.length >= 2) {
+      for (const train of group) visited.add(trainKey(train))
+      chains.push(group)
+    }
   }
 
   // 運用番号がないデータは、従来のnext/previousリンクから復元する。
