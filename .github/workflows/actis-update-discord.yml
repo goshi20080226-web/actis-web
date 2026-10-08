@@ -294,11 +294,10 @@ jobs:
               lines = [f"**{subject}**"]
               if details:
                   lines.extend("・" + x[:180] for x in details)
-              else:
-                  lines.append("・この変更により、上記機能・画面の動作を更新しました。")
               sections.append("\n".join(lines))
 
-          body = "ACTIS Web が更新されました。\n\n" + "\n\n".join(sections)
+          # 開発者向けの前置き・後置きは付けず、利用者が変更内容だけを確認できる形で配信する。
+          body = "\n\n".join(sections)
           open("/tmp/update.txt", "w", encoding="utf-8").write(body)
           PY
 
