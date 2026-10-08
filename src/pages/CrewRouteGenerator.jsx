@@ -65,14 +65,31 @@ function stationTime(station, preferArrival = false) {
 
   const colon = text.match(/^(\d{1,2})[:：](\d{2})(?::(\d{2}))?/)
   if (colon) {
-    return Number(colon[1]) * 60 + Number(colon[2])
+    const hour = Number(colon[1])
+    const minute = Number(colon[2])
+    if (hour > 23 || minute > 59) return null
+    return hour * 60 + minute
   }
 
+  // OUD2は秒まで持つ時刻を HHMMSS 形式で格納することがある。
+  // 例えば 163030 は 16:30:30 であり、16:30 + 30秒として扱う。
+  // 旧実装では「末尾2桁以外をすべて時」と解釈していたため、
+  // 163030 → 1630:30 → formatTime() の剰余計算で 22:30 になる
+  // という致命的な時刻化けが発生していた。
   const digits = text.replace(/[^0-9]/g, "")
   if (digits.length < 3) return null
-  const hour = Number(digits.slice(0, -2))
-  const minute = Number(digits.slice(-2))
-  if (minute > 59) return null
+
+  let hour
+  let minute
+  if (digits.length <= 4) {
+    hour = Number(digits.slice(0, -2))
+    minute = Number(digits.slice(-2))
+  } else {
+    hour = Number(digits.slice(0, -4))
+    minute = Number(digits.slice(-4, -2))
+  }
+
+  if (hour > 23 || minute > 59) return null
   return hour * 60 + minute
 }
 
