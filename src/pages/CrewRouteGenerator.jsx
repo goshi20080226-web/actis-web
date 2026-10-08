@@ -634,6 +634,8 @@ function CrewRouteGeneratorPage() {
   }
 
   function setCount(value) {
+    setUsingAutoPlan(false)
+    setAutoPlan(null)
     const next = Math.max(1, Math.min(100, Number(value) || 1))
     setRosterCount(next)
     setRosters(current => {
@@ -644,10 +646,14 @@ function CrewRouteGeneratorPage() {
   }
 
   function addChangeStation() {
+    setUsingAutoPlan(false)
+    setAutoPlan(null)
     setChangeStations(current => [...current, ""])
   }
 
   function updateChangeStation(index, value) {
+    setUsingAutoPlan(false)
+    setAutoPlan(null)
     setChangeStations(current =>
       current.map((station, stationIndex) =>
         stationIndex === index ? value : station
@@ -660,6 +666,8 @@ function CrewRouteGeneratorPage() {
   }
 
   function updateDistrict(id, key, value) {
+    setUsingAutoPlan(false)
+    setAutoPlan(null)
     setDistricts(current =>
       current.map(district =>
         district.id === id ? { ...district, [key]: value } : district
